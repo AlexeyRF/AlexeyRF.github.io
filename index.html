@@ -1,10 +1,69 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>Перенаправление</title>
-    <meta http-equiv="refresh" content="0;url=https://alexeyrf.github.io/svagalator.github.io/">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Навигация по калькуляторам</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px; 
+            width: 100%;
+            max-width: 400px; 
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 18px 24px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 500;
+            text-align: center;
+            border: 1px solid #333;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #2d2d2d;
+            border-color: #555;
+            transform: translateY(-3px); 
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+    </style>
 </head>
 <body>
-    <p>Вы будете перенаправлены на калькуляторы...</p>
+
+    <div class="button-container">
+        <a href="https://alexeyrf.github.io/svagalator.github.io/index.html" class="btn" rel="noopener noreferrer">
+            Физические калькуляторы (Свагалятор)
+        </a>
+        <a href="https://alexeyrf.github.io/LinCalc/enginer.html" class="btn" rel="noopener noreferrer">
+            Windows Calc
+        </a>
+    </div>
+
 </body>
 </html>

@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Инженерный калькулятор</title>
+    <style>
+        :root {
+            --bg-main: #202020;
+            --bg-sidebar: #2d2d2d;
+            --btn-num: #3b3b3b;
+            --btn-num-hover: #323232;
+            --btn-op: #323232;
+            --btn-op-hover: #3b3b3b;
+            --accent: #4cc2ff;
+            --accent-hover: #47b1e8;
+            --text-main: #ffffff;
+            --text-secondary: #a0a0a0;
+            --border-color: #444;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            display: flex; height: 100vh; 
+            background-color: var(--bg-main); 
+            color: var(--text-main); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            overflow: hidden; 
+        }
+
+        #loader { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: var(--bg-main); display: flex; justify-content: center; align-items: center; 
+            z-index: 9999; font-size: 20px; color: var(--accent); transition: opacity 0.5s; 
+        }
+
+        /* Навигация */
+        #hamburger-btn { 
+            background: transparent; border: none; color: white; 
+            padding: 10px; cursor: pointer; font-size: 20px; margin-right: 10px;
+            border-radius: 4px;
+        }
+        #hamburger-btn:hover { background: var(--btn-op-hover); }
+        
+        #left-nav { 
+            position: fixed; top: 0; left: -250px; width: 250px; height: 100%; 
+            background-color: var(--bg-sidebar); box-shadow: 2px 0 10px rgba(0,0,0,0.5); 
+            z-index: 999; transition: left 0.3s ease; display: flex; flex-direction: column; padding-top: 60px; 
+        }
+        #left-nav.open { left: 0; }
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 998; display: none;
+        }
+        #overlay.active { display: block; }
+        .nav-link { 
+            color: white; text-decoration: none; padding: 15px 20px; 
+            border-bottom: 1px solid var(--border-color); transition: background 0.2s; 
+        }
+        .nav-link:hover { background-color: #3b3b3b; border-left: 4px solid var(--accent); }
+
+        #calculator-area {
+            width: 380px;
+            min-width: 380px;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            box-sizing: border-box;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .calc-header {
+            display: flex;
+            align-items: center;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        #display-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            padding: 10px 5px;
+            margin-bottom: 10px;
+            height: 90px;
+            justify-content: flex-end;
+        }
+        #expr-display {
+            font-size: 14px;
+            color: var(--text-secondary);
+            min-height: 20px;
+            word-wrap: break-word;
+            max-width: 100%;
+        }
+        #main-display {
+            font-size: 46px;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            color: white;
+            text-align: right;
+            width: 100%;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .settings-row {
+            display: flex;
+            gap: 15px;
+            padding: 5px 0;
+            margin-bottom: 10px;
+        }
+        .text-btn {
+            background: transparent; border: none; color: var(--text-main);
+            font-weight: 600; cursor: pointer; font-size: 13px;
+        }
+        .text-btn:hover { color: var(--accent); }
+
+        .memory-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .mem-btn {
+            background: transparent; border: none; color: white;
+            cursor: pointer; padding: 5px 10px; border-radius: 4px; font-weight: 600; font-size: 13px;
+            transition: background 0.1s;
+        }
+        .mem-btn:hover { background: var(--btn-op-hover); }
+        .mem-btn:disabled { color: #666; cursor: default; background: transparent; }
+
+        .dropdown-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .dropdown-container { position: relative; }
+        .dropdown-btn {
+            background: transparent; border: none; color: white;
+            padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 14px;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .dropdown-btn:hover { background: var(--btn-op-hover); }
+        .dropdown-content {
+            display: none; position: absolute; top: 100%; left: 0;
+            background: var(--bg-sidebar); border: 1px solid var(--border-color);
+            border-radius: 6px; padding: 10px; z-index: 50;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            grid-template-columns: repeat(5, 1fr); gap: 5px; width: max-content;
+        }
+        .dropdown-content.func-grid { grid-template-columns: repeat(3, 1fr); }
+        .dropdown-content.show { display: grid; }
+
+        #keyboard {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            margin-top: 10px;
+        }
+        .k-btn {
+            background-color: var(--btn-op); color: white; border: none; border-radius: 4px;
+            font-size: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center;
+            transition: background 0.1s;
+            height: 38px; 
+        }
+        .k-btn:hover { background-color: var(--btn-op-hover); }
+        .k-btn.num { background-color: var(--btn-num); font-weight: 500; font-size: 18px; }
+        .k-btn.num:hover { background-color: var(--btn-num-hover); }
+        .k-btn.accent { background-color: var(--accent); color: black; font-weight: 500; font-size: 20px;}
+        .k-btn.accent:hover { background-color: var(--accent-hover); }
+        .k-btn.active-state { background-color: var(--accent); color: black; }
+
+        .alt-text { display: none; }
+        .second-mode .primary-text { display: none; }
+        .second-mode .alt-text { display: inline; }
+
+        #history-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-main);
+        }
+        .tabs {
+            display: flex;
+            padding: 15px 20px 0 20px;
+            gap: 20px;
+        }
+        .tab {
+            font-size: 16px; font-weight: 600; cursor: pointer;
+            padding-bottom: 5px; color: var(--text-secondary); border-bottom: 3px solid transparent;
+        }
+        .tab.active { color: white; border-bottom: 3px solid var(--accent); }
+        .tab-content {
+            flex-grow: 1; overflow-y: auto; padding: 20px; display: none;
+        }
+        .tab-content.active { display: block; }
+        
+        .empty-text { color: var(--text-secondary); font-size: 14px; margin-top: 10px; }
+        
+        .history-item { margin-bottom: 20px; text-align: right; cursor: pointer; padding: 10px; border-radius: 6px;}
+        .history-item:hover { background-color: #2a2a2a; }
+        .h-expr { color: var(--text-secondary); font-size: 14px; margin-bottom: 5px; }
+        .h-res { font-size: 22px; font-weight: 600; }
+
+        .memory-item { margin-bottom: 15px; text-align: right; }
+        .memory-item .m-res { font-size: 22px; font-weight: 600; margin-bottom: 5px; }
+        .memory-controls { display: flex; justify-content: flex-end; gap: 5px; }
+        .m-ctrl-btn { background: var(--btn-op); border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer;}
+        .m-ctrl-btn:hover { background: var(--btn-op-hover); }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #777; }
+    </style>
+</head>
+<body>
+
+<div id="loader">Загрузка математического ядра...</div>
+
+<div id="overlay" onclick="toggleNav()"></div>
+<div id="left-nav">
+    <a href="graphical.html" class="nav-link">Графический калькулятор</a>
+    <a href="enginer.html" class="nav-link" style="border-left: 4px solid var(--accent); background: #3b3b3b;">Инженерный калькулятор</a>
+    <a href="proger.html" class="nav-link">Калькулятор программиста</a>
+    <a href="convertor.html" class="nav-link">Конвертер величин</a>
+</div>
+
+<div id="calculator-area">
+    <div class="calc-header">
+        <button id="hamburger-btn" onclick="toggleNav()">☰</button>
+        Инженерный
+    </div>
+
+    <div id="display-container">
+        <div id="expr-display"></div>
+        <input type="text" id="main-display" value="0" readonly>
+    </div>
+
+    <div class="settings-row">
+        <button class="text-btn" id="btn-angle" onclick="cycleAngle()">DEG</button>
+        <button class="text-btn">F-E</button>
+    </div>
+
+    <div class="memory-row">
+        <button class="mem-btn" id="mc-btn" onclick="memoryClear()" disabled>MC</button>
+        <button class="mem-btn" id="mr-btn" onclick="memoryRecall()" disabled>MR</button>
+        <button class="mem-btn" onclick="memoryAdd()">M+</button>
+        <button class="mem-btn" onclick="memorySubtract()">M−</button>
+        <button class="mem-btn" onclick="memoryStore()">MS</button>
+    </div>
+
+    <div class="dropdown-row">
+        <div class="dropdown-container">
+            <button class="dropdown-btn" onclick="toggleDropdown('trig-dropdown')">
+                <span style="font-size: 16px;">◿</span> Тригонометрия ⌄
+            </button>
+            <div class="dropdown-content" id="trig-dropdown">
+                <button class="k-btn" onclick="insert('sin(')">sin</button>
+                <button class="k-btn" onclick="insert('cos(')">cos</button>
+                <button class="k-btn" onclick="insert('tan(')">tan</button>
+                <button class="k-btn" onclick="insert('cot(')">cot</button>
+                <button class="k-btn" onclick="insert('sec(')">sec</button>
+                
+                <button class="k-btn" onclick="insert('asin(')">asin</button>
+                <button class="k-btn" onclick="insert('acos(')">acos</button>
+                <button class="k-btn" onclick="insert('atan(')">atan</button>
+                <button class="k-btn" onclick="insert('acot(')">acot</button>
+                <button class="k-btn" onclick="insert('csc(')">csc</button>
+            </div>
+        </div>
+        <div class="dropdown-container">
+            <button class="dropdown-btn" onclick="toggleDropdown('func-dropdown')">
+                <span style="font-family: serif; font-style: italic;">f</span> Функция ⌄
+            </button>
+            <div class="dropdown-content func-grid" id="func-dropdown">
+                <button class="k-btn" onclick="insert('abs(')">|x|</button>
+                <button class="k-btn" onclick="insert('ceil(')">⌈x⌉</button>
+                <button class="k-btn" onclick="insert('floor(')">⌊x⌋</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="keyboard">
+        <button class="k-btn" id="btn-2nd" onclick="toggle2nd()">2<sup>nd</sup></button>
+        <button class="k-btn" onclick="insert('pi')">π</button>
+        <button class="k-btn" onclick="insert('e')">e</button>
+        <button class="k-btn" onclick="clearAll()">C</button>
+        <button class="k-btn" onclick="backspace()">⌫</button>
+
+        <button class="k-btn dynamic-btn" onclick="insertDynamic('^2', '^3')">
+            <span class="primary-text">x²</span><span class="alt-text">x³</span>
+        </button>
+        <button class="k-btn" onclick="insert('^-1')">¹/x</button>
+        <button class="k-btn" onclick="insert('abs(')">|x|</button>
+        <button class="k-btn" onclick="insert('exp(')">exp</button>
+        <button class="k-btn" onclick="insert(' mod ')">mod</button>
+
+        <button class="k-btn dynamic-btn" onclick="insertDynamic('sqrt(', 'cbrt(')">
+            <span class="primary-text">²√x</span><span class="alt-text">³√x</span>
+        </button>
+        <button class="k-btn" onclick="insert('(')">(</button>
+        <button class="k-btn" onclick="insert(')')">)</button>
+        <button class="k-btn" onclick="insert('!')">n!</button>
+        <button class="k-btn" onclick="insert('/')">÷</button>
+
+        <button class="k-btn dynamic-btn" onclick="insertDynamic('^', '^(1/')">
+            <span class="primary-text">xʸ</span><span class="alt-text">y√x</span>
+        </button>
+        <button class="k-btn num" onclick="insert('7')">7</button>
+        <button class="k-btn num" onclick="insert('8')">8</button>
+        <button class="k-btn num" onclick="insert('9')">9</button>
+        <button class="k-btn" onclick="insert('*')">×</button>
+
+        <button class="k-btn dynamic-btn" onclick="insertDynamic('10^', '2^')">
+            <span class="primary-text">10ˣ</span><span class="alt-text">2ˣ</span>
+        </button>
+        <button class="k-btn num" onclick="insert('4')">4</button>
+        <button class="k-btn num" onclick="insert('5')">5</button>
+        <button class="k-btn num" onclick="insert('6')">6</button>
+        <button class="k-btn" onclick="insert('-')">−</button>
+
+        <button class="k-btn dynamic-btn" onclick="insertDynamic('log10(', 'log(')">
+            <span class="primary-text">log</span><span class="alt-text">logᵦ</span>
+        </button>
+        <button class="k-btn num" onclick="insert('1')">1</button>
+        <button class="k-btn num" onclick="insert('2')">2</button>
+        <button class="k-btn num" onclick="insert('3')">3</button>
+        <button class="k-btn" onclick="insert('+')">+</button>
+
+        <button class="k-btn dynamic-btn" onclick="insertDynamic('log(', 'e^')">
+            <span class="primary-text">ln</span><span class="alt-text">eˣ</span>
+        </button>
+        <button class="k-btn num" onclick="toggleSign()">±</button>
+        <button class="k-btn num" onclick="insert('0')">0</button>
+        <button class="k-btn num" onclick="insert('.')">,</button>
+        <button class="k-btn accent" onclick="calculate()">=</button>
+    </div>
+</div>
+
+<div id="history-area">
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('history')">Журнал</div>
+        <div class="tab" onclick="switchTab('memory')">Память</div>
+    </div>
+    
+    <div id="tab-history" class="tab-content active">
+        <div class="empty-text" id="empty-history">Журнала еще нет.</div>
+        <div id="history-list"></div>
+    </div>
+    
+    <div id="tab-memory" class="tab-content">
+        <div class="empty-text" id="empty-memory">В памяти ничего не сохранено.</div>
+        <div id="memory-list"></div>
+    </div>
+</div>
+
+<script>
+    window.onload = () => {
+        const script = document.createElement('script');
+        script.src = "math.js";
+        script.onload = () => {
+            document.getElementById('loader').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loader').style.display = 'none';
+                initMath();
+            }, 500);
+        };
+        script.onerror = () => {
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js";
+            document.head.appendChild(script);
+        };
+        document.head.appendChild(script);
+    };
+
+    let is2ndActive = false;
+    let angleMode = 'deg'; 
+    let inputStr = '';
+    let memory = [];
+    let history = [];
+    let justCalculated = false;
+
+    function formatRus(str) {
+        if (!str) return '';
+        if (typeof str !== 'string') str = str.toString();
+        let s = str.replace(/(\d)e([+-]?\d+)/ig, '$1*10^$2');
+        return s.replace(/\./g, ',');
+    }
+
+    function initMath() {
+        math.config({ predictable: true });
+
+        function toRad(val) {
+            if (angleMode === 'deg') return val * Math.PI / 180;
+            if (angleMode === 'grad') return val * Math.PI / 200;
+            return val;
+        }
+        function fromRad(val) {
+            if (angleMode === 'deg') return val * 180 / Math.PI;
+            if (angleMode === 'grad') return val * 200 / Math.PI;
+            return val;
+        }
+
+        function snapToZero(val) {
+            return Math.abs(val) < 1e-14 ? 0 : val;
+        }
+
+        math.import({
+            sin: function(x) { return snapToZero(Math.sin(toRad(x))); },
+            cos: function(x) { return snapToZero(Math.cos(toRad(x))); },
+            tan: function(x) {
+                if (snapToZero(Math.cos(toRad(x))) === 0) return NaN;
+                return snapToZero(Math.tan(toRad(x)));
+            },
+            cot: function(x) {
+                if (snapToZero(Math.sin(toRad(x))) === 0) return NaN;
+                return snapToZero(1 / Math.tan(toRad(x)));
+            },
+            sec: function(x) {
+                let c = snapToZero(Math.cos(toRad(x)));
+                if (c === 0) return NaN;
+                return snapToZero(1 / c);
+            },
+            csc: function(x) {
+                let s = snapToZero(Math.sin(toRad(x)));
+                if (s === 0) return NaN;
+                return snapToZero(1 / s);
+            },
+            asin: function(x) { return snapToZero(fromRad(Math.asin(x))); },
+            acos: function(x) { return snapToZero(fromRad(Math.acos(x))); },
+            atan: function(x) { return snapToZero(fromRad(Math.atan(x))); },
+            acot: function(x) { return snapToZero(fromRad(Math.PI / 2 - Math.atan(x))); }
+        }, { override: true });
+    }
+
+    function toggleNav() {
+        document.getElementById('left-nav').classList.toggle('open');
+        document.getElementById('overlay').classList.toggle('active');
+    }
+
+    function toggle2nd() {
+        is2ndActive = !is2ndActive;
+        const kbGrid = document.getElementById('keyboard');
+        const btn2nd = document.getElementById('btn-2nd');
+        if (is2ndActive) {
+            kbGrid.classList.add('second-mode');
+            btn2nd.classList.add('active-state');
+        } else {
+            kbGrid.classList.remove('second-mode');
+            btn2nd.classList.remove('active-state');
+        }
+    }
+
+    function cycleAngle() {
+        if (angleMode === 'deg') angleMode = 'rad';
+        else if (angleMode === 'rad') angleMode = 'grad';
+        else angleMode = 'deg';
+        document.getElementById('btn-angle').innerText = angleMode.toUpperCase();
+    }
+
+    function toggleDropdown(id) {
+        document.querySelectorAll('.dropdown-content').forEach(el => {
+            if (el.id !== id) el.classList.remove('show');
+        });
+        document.getElementById(id).classList.toggle('show');
+    }
+
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.dropdown-container')) {
+            document.querySelectorAll('.dropdown-content').forEach(el => el.classList.remove('show'));
+        }
+    });
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        
+        event.target.classList.add('active');
+        document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    function updateDisplay(mainTxt = inputStr, exprTxt = '') {
+        const display = document.getElementById('main-display');
+        display.value = mainTxt === '' ? '0' : formatRus(mainTxt);
+        if (exprTxt !== undefined) {
+            document.getElementById('expr-display').innerText = formatRus(exprTxt);
+        }
+        
+        if (display.value.length > 12) {
+            display.style.fontSize = Math.max(20, 46 - (display.value.length - 12) * 1.5) + 'px';
+        } else {
+            display.style.fontSize = '46px';
+        }
+    }
+
+    function insertDynamic(primary, secondary) {
+        insert(is2ndActive ? secondary : primary);
+    }
+
+    function insert(val) {
+        if (justCalculated && !['+', '-', '*', '/', '^', ' mod '].includes(val)) {
+            inputStr = '';
+        }
+        justCalculated = false;
+        
+        const lastChar = inputStr.slice(-1);
+        const operators = ['+', '-', '*', '/', '^'];
+        if (operators.includes(val) && operators.includes(lastChar)) {
+            inputStr = inputStr.slice(0, -1) + val;
+        } else {
+            inputStr += val;
+        }
+        updateDisplay();
+    }
+
+    function backspace() {
+        if (justCalculated) {
+            document.getElementById('expr-display').innerText = '';
+            justCalculated = false;
+        } else {
+            if (inputStr.endsWith(' mod ')) inputStr = inputStr.slice(0, -5);
+            else if (inputStr.length > 0) inputStr = inputStr.slice(0, -1);
+            updateDisplay();
+        }
+    }
+
+    function clearAll() {
+        inputStr = '';
+        justCalculated = false;
+        updateDisplay('0', '');
+    }
+
+    function toggleSign() {
+        if (!inputStr || inputStr === '0') return;
+        if (inputStr.startsWith('-(') && inputStr.endsWith(')')) {
+            inputStr = inputStr.slice(2, -1);
+        } else {
+            inputStr = `-(${inputStr})`;
+        }
+        updateDisplay();
+    }
+
+    function calculate() {
+        if (!inputStr) return;
+        try {
+            let parseStr = inputStr.replace(/,/g, '.');
+            
+            let result = math.evaluate(parseStr);
+            
+            result = math.format(result, { precision: 14 });
+            result = parseFloat(result).toString();
+
+            let exprStr = inputStr + '=';
+            
+            addToHistory(exprStr, result);
+            inputStr = result;
+            justCalculated = true;
+            updateDisplay(inputStr, exprStr);
+            
+        } catch (e) {
+            updateDisplay('Ошибка', inputStr + '=');
+            inputStr = '';
+            justCalculated = true;
+        }
+    }
+
+    function addToHistory(expr, res) {
+        history.unshift({ expr, res });
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('history-list');
+        const empty = document.getElementById('empty-history');
+        
+        if (history.length === 0) {
+            empty.style.display = 'block';
+            list.innerHTML = '';
+            return;
+        }
+        
+        empty.style.display = 'none';
+        list.innerHTML = '';
+        history.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.onclick = () => { inputStr = item.res; justCalculated = false; updateDisplay(); };
+            div.innerHTML = `
+                <div class="h-expr">${formatRus(item.expr)}</div>
+                <div class="h-res">${formatRus(item.res)}</div>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    function updateMemoryButtons() {
+        const hasMem = memory.length > 0;
+        document.getElementById('mc-btn').disabled = !hasMem;
+        document.getElementById('mr-btn').disabled = !hasMem;
+    }
+
+    function getCurrentValue() {
+        let valStr = document.getElementById('main-display').value;
+        valStr = valStr.replace(/\*10\^/g, 'e').replace(/,/g, '.');
+        return parseFloat(valStr) || 0;
+    }
+
+    function memoryClear() {
+        memory = [];
+        renderMemory();
+    }
+
+    function memoryRecall() {
+        if (memory.length > 0) {
+            inputStr = memory[0].toString();
+            justCalculated = true;
+            updateDisplay();
+        }
+    }
+
+    function memoryStore() {
+        let val = getCurrentValue();
+        memory.unshift(val);
+        renderMemory();
+    }
+
+    function memoryAdd() {
+        let val = getCurrentValue();
+        if (memory.length > 0) {
+            memory[0] += val;
+        } else {
+            memory.unshift(val);
+        }
+        renderMemory();
+    }
+
+    function memorySubtract() {
+        let val = getCurrentValue();
+        if (memory.length > 0) {
+            memory[0] -= val;
+        } else {
+            memory.unshift(-val);
+        }
+        renderMemory();
+    }
+
+    function memClearItem(index) {
+        memory.splice(index, 1);
+        renderMemory();
+    }
+
+    function memAddSubItem(index, isAdd) {
+        let val = getCurrentValue();
+        memory[index] += isAdd ? val : -val;
+        renderMemory();
+    }
+
+    function renderMemory() {
+        updateMemoryButtons();
+        const list = document.getElementById('memory-list');
+        const empty = document.getElementById('empty-memory');
+        
+        if (memory.length === 0) {
+            empty.style.display = 'block';
+            list.innerHTML = '';
+            return;
+        }
+        
+        empty.style.display = 'none';
+        list.innerHTML = '';
+        memory.forEach((val, index) => {
+            const div = document.createElement('div');
+            div.className = 'memory-item';
+            div.innerHTML = `
+                <div class="m-res">${formatRus(math.format(val, {precision: 14}))}</div>
+                <div class="memory-controls">
+                    <button class="m-ctrl-btn" onclick="memClearItem(${index})">MC</button>
+                    <button class="m-ctrl-btn" onclick="memAddSubItem(${index}, true)">M+</button>
+                    <button class="m-ctrl-btn" onclick="memAddSubItem(${index}, false)">M-</button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        const keyMap = {
+            'Enter': '=', '=': '=',
+            'Backspace': '⌫', 'Escape': 'C',
+            ',': '.', '.': '.',
+            '+': '+', '-': '-', '*': '*', '/': '/',
+            '(': '(', ')': ')'
+        };
+        
+        if (/[0-9]/.test(e.key)) { insert(e.key); }
+        else if (keyMap[e.key]) {
+            e.preventDefault();
+            if (keyMap[e.key] === '=') calculate();
+            else if (keyMap[e.key] === '⌫') backspace();
+            else if (keyMap[e.key] === 'C') clearAll();
+            else insert(keyMap[e.key]);
+        }
+    });
+
+</script>
+</body>
+</html>

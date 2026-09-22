@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор Программиста</title>
+    <style>
+        :root {
+            --bg-main: #202020;
+            --bg-sidebar: #2d2d2d;
+            --btn-num: #3b3b3b;
+            --btn-num-hover: #323232;
+            --btn-op: #323232;
+            --btn-op-hover: #3b3b3b;
+            --accent: #4cc2ff;
+            --accent-hover: #47b1e8;
+            --text-main: #ffffff;
+            --text-secondary: #a0a0a0;
+            --border-color: #444;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            display: flex; height: 100vh; 
+            background-color: var(--bg-main); 
+            color: var(--text-main); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            overflow: hidden; 
+        }
+
+        #hamburger-btn { 
+            background: transparent; border: none; color: white; 
+            padding: 10px; cursor: pointer; font-size: 20px; margin-right: 10px;
+            border-radius: 4px;
+        }
+        #hamburger-btn:hover { background: var(--btn-op-hover); }
+        
+        #left-nav { 
+            position: fixed; top: 0; left: -250px; width: 250px; height: 100%; 
+            background-color: var(--bg-sidebar); box-shadow: 2px 0 10px rgba(0,0,0,0.5); 
+            z-index: 999; transition: left 0.3s ease; display: flex; flex-direction: column; padding-top: 60px; 
+        }
+        #left-nav.open { left: 0; }
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 998; display: none;
+        }
+        #overlay.active { display: block; }
+        .nav-link { 
+            color: white; text-decoration: none; padding: 15px 20px; 
+            border-bottom: 1px solid var(--border-color); transition: background 0.2s; 
+        }
+        .nav-link:hover { background-color: #3b3b3b; border-left: 4px solid var(--accent); }
+
+        #calculator-area {
+            width: 400px;
+            min-width: 400px;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            box-sizing: border-box;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .calc-header {
+            display: flex;
+            align-items: center;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        #display-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            padding: 5px;
+            margin-bottom: 10px;
+            height: 80px;
+            justify-content: flex-end;
+        }
+        #expr-display {
+            font-size: 14px;
+            color: var(--text-secondary);
+            min-height: 20px;
+            word-wrap: break-word;
+            max-width: 100%;
+        }
+        #main-display {
+            font-size: 42px;
+            font-weight: 600;
+            border: none;
+            background: transparent;
+            color: white;
+            text-align: right;
+            width: 100%;
+            outline: none;
+            font-family: inherit;
+        }
+
+        #bases-container {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+        .base-row {
+            display: flex;
+            align-items: center;
+            padding: 2px 10px;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        .base-row:hover { background: #2a2a2a; }
+        .base-row.active {
+            border-left: 4px solid var(--accent);
+            color: var(--text-main);
+        }
+        .base-label {
+            width: 40px;
+            font-weight: 600;
+        }
+        .base-val {
+            flex-grow: 1;
+            font-family: 'Consolas', monospace;
+            word-wrap: break-word;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            margin-bottom: 5px;
+        }
+        .text-btn {
+            background: transparent; border: none; color: var(--text-main);
+            font-weight: 600; cursor: pointer; font-size: 14px; padding: 5px;
+        }
+        .text-btn:hover { background: var(--btn-op-hover); border-radius: 4px; }
+
+        .dropdown-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            padding: 0 5px;
+        }
+        .dropdown-container { position: relative; }
+        .dropdown-btn {
+            background: transparent; border: none; color: white;
+            padding: 5px; border-radius: 4px; cursor: pointer; font-size: 14px;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .dropdown-btn:hover { background: var(--btn-op-hover); }
+        .dropdown-content {
+            display: none; position: absolute; top: 100%; left: 0;
+            background: var(--bg-sidebar); border: 1px solid var(--border-color);
+            border-radius: 6px; padding: 10px; z-index: 50;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            grid-template-columns: repeat(2, 1fr); gap: 5px; width: max-content;
+        }
+        .dropdown-content.show { display: grid; }
+
+        #keyboard {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            margin-top: 10px; 
+        }
+        .k-btn {
+            background-color: var(--btn-op); color: white; border: none; border-radius: 4px;
+            font-size: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center;
+            transition: background 0.1s;
+            height: 38px; 
+        }
+        .k-btn:hover:not(:disabled) { background-color: var(--btn-op-hover); }
+        .k-btn.num { background-color: var(--btn-num); font-weight: 500; font-size: 18px; }
+        .k-btn.num:hover:not(:disabled) { background-color: var(--btn-num-hover); }
+        .k-btn.accent { background-color: var(--accent); color: black; font-weight: 500; font-size: 20px;} 
+        .k-btn.accent:hover:not(:disabled) { background-color: var(--accent-hover); }
+        .k-btn:disabled { opacity: 0.2; cursor: default; }
+
+        #history-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-main);
+        }
+        .tabs {
+            display: flex;
+            padding: 15px 20px 0 20px;
+            gap: 20px;
+        }
+        .tab {
+            font-size: 16px; font-weight: 600; cursor: pointer;
+            padding-bottom: 5px; color: var(--text-secondary); border-bottom: 3px solid transparent;
+        }
+        .tab.active { color: white; border-bottom: 3px solid var(--accent); }
+        .tab-content { flex-grow: 1; overflow-y: auto; padding: 20px; display: none; }
+        .tab-content.active { display: block; }
+        
+        .empty-text { color: var(--text-secondary); font-size: 14px; margin-top: 10px; }
+        .history-item, .memory-item { margin-bottom: 20px; text-align: right; cursor: pointer; padding: 10px; border-radius: 6px;}
+        .history-item:hover, .memory-item:hover { background-color: #2a2a2a; }
+        .h-expr { color: var(--text-secondary); font-size: 14px; margin-bottom: 5px; }
+        .h-res, .m-res { font-size: 20px; font-weight: 600; word-break: break-all; }
+        .memory-controls { display: flex; justify-content: flex-end; gap: 5px; margin-top: 5px;}
+        .m-ctrl-btn { background: var(--btn-op); border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer;}
+        .m-ctrl-btn:hover { background: var(--btn-op-hover); }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #777; }
+    </style>
+</head>
+<body>
+
+<div id="overlay" onclick="toggleNav()"></div>
+<div id="left-nav">
+    <a href="graphical.html" class="nav-link">Графический калькулятор</a>
+    <a href="enginer.html" class="nav-link">Инженерный калькулятор</a>
+    <a href="proger.html" class="nav-link" style="border-left: 4px solid var(--accent); background: #3b3b3b;">Калькулятор программиста</a>
+    <a href="convertor.html" class="nav-link">Конвертер величин</a>
+</div>
+
+<div id="calculator-area">
+    <div class="calc-header">
+        <button id="hamburger-btn" onclick="toggleNav()">☰</button>
+        Программист
+    </div>
+
+    <div id="display-container">
+        <div id="expr-display"></div>
+        <input type="text" id="main-display" value="0" readonly>
+    </div>
+
+    <div id="bases-container">
+        <div class="base-row" id="row-16" onclick="setBase(16)">
+            <span class="base-label">HEX</span><span class="base-val" id="val-16">0</span>
+        </div>
+        <div class="base-row active" id="row-10" onclick="setBase(10)">
+            <span class="base-label">DEC</span><span class="base-val" id="val-10">0</span>
+        </div>
+        <div class="base-row" id="row-8" onclick="setBase(8)">
+            <span class="base-label">OCT</span><span class="base-val" id="val-8">0</span>
+        </div>
+        <div class="base-row" id="row-2" onclick="setBase(2)">
+            <span class="base-label">BIN</span><span class="base-val" id="val-2">0</span>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <div style="display:flex; gap:15px; align-items:center;">
+            <button class="text-btn" id="word-size-btn" onclick="cycleWordSize()">QWORD</button>
+            <button class="text-btn" onclick="memoryStore()">MS</button>
+            <button class="text-btn" id="mr-toolbar" onclick="memoryRecall()" style="opacity: 0.5;">M▾</button>
+        </div>
+    </div>
+
+    <div class="dropdown-row">
+        <div class="dropdown-container">
+            <button class="dropdown-btn" onclick="toggleDropdown('bitwise-dropdown')">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M4 8h8M8 4v8" stroke="white" stroke-width="1.5"/></svg> Побитовые ⌄
+            </button>
+            <div class="dropdown-content" id="bitwise-dropdown">
+                <button class="k-btn" onclick="insertOp('AND')">AND</button>
+                <button class="k-btn" onclick="insertOp('OR')">OR</button>
+                <button class="k-btn" onclick="applyUnary('NOT')">NOT</button>
+                <button class="k-btn" onclick="insertOp('NAND')">NAND</button>
+                <button class="k-btn" onclick="insertOp('NOR')">NOR</button>
+                <button class="k-btn" onclick="insertOp('XOR')">XOR</button>
+            </div>
+        </div>
+        <div class="dropdown-container">
+            <button class="dropdown-btn" onclick="toggleDropdown('shift-dropdown')">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="white"><path d="M4 5l4 3-4 3M9 5l4 3-4 3" stroke="white" stroke-width="1.5" fill="none"/></svg> Сдвиг битов ⌄
+            </button>
+            <div class="dropdown-content" id="shift-dropdown" style="grid-template-columns: 1fr;">
+                <button class="k-btn" onclick="insertOp('<<')">Арифметический сдвиг влево</button>
+                <button class="k-btn" onclick="insertOp('>>')">Арифметический сдвиг вправо</button>
+                <button class="k-btn" onclick="insertOp('RoL')">Циклический сдвиг (RoL)</button>
+                <button class="k-btn" onclick="insertOp('RoR')">Циклический сдвиг (RoR)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="keyboard">
+        <button class="k-btn hex-btn" onclick="insertChar('A')">A</button>
+        <button class="k-btn" onclick="insertOp('<<')">«</button>
+        <button class="k-btn" onclick="insertOp('>>')">»</button>
+        <button class="k-btn" onclick="clearAll()">C</button>
+        <button class="k-btn" onclick="backspace()">⌫</button>
+
+        <button class="k-btn hex-btn" onclick="insertChar('B')">B</button>
+        <button class="k-btn" onclick="insertChar('(')">(</button>
+        <button class="k-btn" onclick="insertChar(')')">)</button>
+        <button class="k-btn" onclick="insertOp('%')">%</button>
+        <button class="k-btn" onclick="insertOp('/')">÷</button>
+
+        <button class="k-btn hex-btn" onclick="insertChar('C')">C</button>
+        <button class="k-btn num oct-btn dec-btn" onclick="insertChar('7')">7</button>
+        <button class="k-btn num dec-btn" onclick="insertChar('8')">8</button>
+        <button class="k-btn num dec-btn" onclick="insertChar('9')">9</button>
+        <button class="k-btn" onclick="insertOp('*')">×</button>
+
+        <button class="k-btn hex-btn" onclick="insertChar('D')">D</button>
+        <button class="k-btn num oct-btn dec-btn" onclick="insertChar('4')">4</button>
+        <button class="k-btn num oct-btn dec-btn" onclick="insertChar('5')">5</button>
+        <button class="k-btn num oct-btn dec-btn" onclick="insertChar('6')">6</button>
+        <button class="k-btn" onclick="insertOp('-')">−</button>
+
+        <button class="k-btn hex-btn" onclick="insertChar('E')">E</button>
+        <button class="k-btn num" onclick="insertChar('1')">1</button>
+        <button class="k-btn num oct-btn dec-btn" onclick="insertChar('2')">2</button>
+        <button class="k-btn num oct-btn dec-btn" onclick="insertChar('3')">3</button>
+        <button class="k-btn" onclick="insertOp('+')">+</button>
+
+        <button class="k-btn hex-btn" onclick="insertChar('F')">F</button>
+        <button class="k-btn" onclick="toggleSign()">±</button>
+        <button class="k-btn num" onclick="insertChar('0')">0</button>
+        <button class="k-btn" disabled>,</button>
+        <button class="k-btn accent" onclick="calculate()">=</button>
+    </div>
+</div>
+
+<div id="history-area">
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('history')">Журнал</div>
+        <div class="tab" onclick="switchTab('memory')">Память</div>
+    </div>
+    
+    <div id="tab-history" class="tab-content active">
+        <div class="empty-text" id="empty-history">Журнала еще нет.</div>
+        <div id="history-list"></div>
+    </div>
+    
+    <div id="tab-memory" class="tab-content">
+        <div class="empty-text" id="empty-memory">В памяти ничего не сохранено.</div>
+        <div id="memory-list"></div>
+    </div>
+</div>
+
+<script>
+    let currentBase = 10;
+    let wordSizeBits = 64; 
+    let mask = (1n << 64n) - 1n;
+    let isTyping = false;
+    let inputStr = "0"; 
+    
+    let expression = []; 
+    let history = [];
+    let memory = [];
+
+    window.onload = () => {
+        updateKeyboardState();
+        updateDisplays(0n);
+    };
+
+    function toggleNav() {
+        document.getElementById('left-nav').classList.toggle('open');
+        document.getElementById('overlay').classList.toggle('active');
+    }
+
+    function toggleDropdown(id) {
+        document.querySelectorAll('.dropdown-content').forEach(el => {
+            if (el.id !== id) el.classList.remove('show');
+        });
+        document.getElementById(id).classList.toggle('show');
+    }
+
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.dropdown-container')) {
+            document.querySelectorAll('.dropdown-content').forEach(el => el.classList.remove('show'));
+        }
+    });
+
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    const wordSizes = [
+        { name: 'QWORD', bits: 64 },
+        { name: 'DWORD', bits: 32 },
+        { name: 'WORD',  bits: 16 },
+        { name: 'BYTE',  bits: 8  }
+    ];
+    let wordIdx = 0;
+
+    function cycleWordSize() {
+        wordIdx = (wordIdx + 1) % wordSizes.length;
+        wordSizeBits = wordSizes[wordIdx].bits;
+        mask = (1n << BigInt(wordSizeBits)) - 1n;
+        document.getElementById('word-size-btn').innerText = wordSizes[wordIdx].name;
+        
+        let val = parseCurrentInput();
+        val = applyMask(val);
+        inputStr = formatForInput(val, currentBase);
+        updateDisplays(val);
+    }
+
+    function applyMask(val) {
+        if (val < 0n) {
+            val = (val & mask) === 0n ? 0n : mask + 1n + val;
+        }
+        return val & mask;
+    }
+
+    function getSignedDec(val) {
+        let unsigned = val & mask;
+        let signBit = 1n << BigInt(wordSizeBits - 1);
+        if (unsigned & signBit) {
+            return unsigned - (1n << BigInt(wordSizeBits));
+        }
+        return unsigned;
+    }
+
+    function setBase(b) {
+        if (currentBase === b) return;
+        let val = parseCurrentInput();
+        
+        document.getElementById(`row-${currentBase}`).classList.remove('active');
+        currentBase = b;
+        document.getElementById(`row-${currentBase}`).classList.add('active');
+        
+        inputStr = formatForInput(val, currentBase);
+        isTyping = false; 
+        updateKeyboardState();
+        updateDisplays(val);
+    }
+
+    function parseCurrentInput() {
+        if (!inputStr) return 0n;
+        try {
+            if (currentBase === 10) return BigInt(inputStr); // Может быть отрицательным
+            if (currentBase === 16) return BigInt("0x" + inputStr);
+            if (currentBase === 8)  return BigInt("0o" + inputStr);
+            if (currentBase === 2)  return BigInt("0b" + inputStr);
+        } catch(e) { return 0n; }
+    }
+
+    function formatForInput(val, base) {
+        val = applyMask(val);
+        if (base === 10) return getSignedDec(val).toString(10);
+        if (base === 16) return val.toString(16).toUpperCase();
+        if (base === 8)  return val.toString(8);
+        if (base === 2)  return val.toString(2);
+    }
+
+    function formatBin(binStr) {
+        binStr = binStr.padStart(wordSizeBits, '0');
+        let blocks = binStr.match(/.{1,4}/g);
+        return blocks ? blocks.join(' ') : '0';
+    }
+
+    function updateDisplays(val) {
+        val = applyMask(val);
+        
+        document.getElementById('val-16').innerText = val.toString(16).toUpperCase() || '0';
+        document.getElementById('val-10').innerText = getSignedDec(val).toString(10) || '0';
+        document.getElementById('val-8').innerText = val.toString(8) || '0';
+        document.getElementById('val-2').innerText = formatBin(val.toString(2));
+
+        let mainDisp = formatForInput(val, currentBase);
+        let exprText = expression.map(t => typeof t === 'bigint' ? formatForInput(t, currentBase) : t).join(' ');
+
+        document.getElementById('main-display').value = mainDisp;
+        document.getElementById('expr-display').innerText = exprText;
+        
+        let el = document.getElementById('main-display');
+        if (mainDisp.length > 12) el.style.fontSize = Math.max(20, 42 - (mainDisp.length - 12) * 1.5) + 'px';
+        else el.style.fontSize = '42px';
+    }
+
+    function updateKeyboardState() {
+        document.querySelectorAll('.k-btn.hex-btn').forEach(btn => btn.disabled = currentBase < 16);
+        document.querySelectorAll('.k-btn.dec-btn').forEach(btn => btn.disabled = currentBase < 10);
+        document.querySelectorAll('.k-btn.oct-btn').forEach(btn => btn.disabled = currentBase < 8);
+    }
+
+    function insertChar(c) {
+        if (c === '(' || c === ')') {
+            if (isTyping) {
+                expression.push(parseCurrentInput());
+                isTyping = false;
+            }
+            expression.push(c);
+            updateDisplays(parseCurrentInput());
+            return;
+        }
+
+        if (!isTyping) {
+            inputStr = c;
+            isTyping = true;
+        } else {
+            if (inputStr === "0" || inputStr === "-0") inputStr = c;
+            else inputStr += c;
+        }
+        updateDisplays(parseCurrentInput());
+    }
+
+    function insertOp(op) {
+        let val = parseCurrentInput();
+        expression.push(val);
+        expression.push(op);
+        isTyping = false;
+        
+        let tempRes = evaluateShuntingYard(expression.slice(0, -1));
+        inputStr = formatForInput(tempRes, currentBase);
+        updateDisplays(tempRes);
+    }
+
+    function applyUnary(op) {
+        let val = parseCurrentInput();
+        if (op === 'NOT') val = ~val;
+        val = applyMask(val);
+        inputStr = formatForInput(val, currentBase);
+        isTyping = false;
+        updateDisplays(val);
+    }
+
+    function toggleSign() {
+        if (currentBase !== 10) return; 
+        let val = parseCurrentInput();
+        val = applyMask(-val);
+        inputStr = formatForInput(val, currentBase);
+        updateDisplays(val);
+    }
+
+    function backspace() {
+        if (!isTyping) return;
+        if (inputStr.length > 1) {
+            inputStr = inputStr.slice(0, -1);
+            if (inputStr === '-') inputStr = '0';
+        } else {
+            inputStr = '0';
+            isTyping = false;
+        }
+        updateDisplays(parseCurrentInput());
+    }
+
+    function clearAll() {
+        inputStr = "0";
+        expression = [];
+        isTyping = false;
+        updateDisplays(0n);
+    }
+
+    const precedence = {
+        '|':1, 'NOR':1, '^':2, '&':3, 'NAND':3, 
+        '<<':4, '>>':4, 'RoL':4, 'RoR':4, 
+        '+':5, '-':5, '*':6, '/':6, '%':6
+    };
+
+    function calculate() {
+        if (isTyping || expression.length > 0) {
+            let val = parseCurrentInput();
+            expression.push(val);
+        }
+        
+        if (expression.length === 0) return;
+
+        let res = evaluateShuntingYard(expression);
+        let exprStr = expression.map(t => typeof t === 'bigint' ? formatForInput(t, currentBase) : t).join(' ') + ' =';
+        
+        addToHistory(exprStr, formatForInput(res, currentBase));
+        
+        inputStr = formatForInput(res, currentBase);
+        expression = [];
+        isTyping = false;
+        updateDisplays(res);
+    }
+
+    function evaluateShuntingYard(tokens) {
+        let postfix = [];
+        let stack = [];
+        
+        for (let t of tokens) {
+            if (typeof t === 'bigint') {
+                postfix.push(t);
+            } else if (t === '(') {
+                stack.push(t);
+            } else if (t === ')') {
+                while(stack.length && stack[stack.length-1] !== '(') postfix.push(stack.pop());
+                stack.pop();
+            } else {
+                while(stack.length && precedence[stack[stack.length-1]] >= precedence[t]) {
+                    postfix.push(stack.pop());
+                }
+                stack.push(t);
+            }
+        }
+        while(stack.length) postfix.push(stack.pop());
+
+        let res = [];
+        for (let t of postfix) {
+            if (typeof t === 'bigint') res.push(t);
+            else {
+                let b = res.pop() || 0n;
+                let a = res.pop() || 0n;
+                let val = 0n;
+                
+                try {
+                    if (t==='+') val = a + b;
+                    if (t==='-') val = a - b;
+                    if (t==='*') val = a * b;
+                    if (t==='/') val = b===0n ? 0n : a / b;
+                    if (t==='%') val = b===0n ? 0n : a % b;
+                    if (t==='&' || t==='AND') val = a & b;
+                    if (t==='|' || t==='OR') val = a | b;
+                    if (t==='^' || t==='XOR') val = a ^ b;
+                    if (t==='NAND') val = ~(a & b);
+                    if (t==='NOR') val = ~(a | b);
+                    
+                    let shiftAmt = BigInt(b);
+                    if (t==='<<') val = a << shiftAmt;
+                    if (t==='>>') val = a >> shiftAmt; 
+                    if (t==='RoL') {
+                        let shift = shiftAmt % BigInt(wordSizeBits);
+                        val = (a << shift) | (a >> (BigInt(wordSizeBits) - shift));
+                    }
+                    if (t==='RoR') {
+                        let shift = shiftAmt % BigInt(wordSizeBits);
+                        val = (a >> shift) | (a << (BigInt(wordSizeBits) - shift));
+                    }
+                } catch(e) {}
+                
+                res.push(applyMask(val));
+            }
+        }
+        return res[0] || 0n;
+    }
+
+    function addToHistory(expr, res) {
+        history.unshift({ expr, res });
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('history-list');
+        const empty = document.getElementById('empty-history');
+        if (history.length === 0) { empty.style.display = 'block'; list.innerHTML = ''; return; }
+        
+        empty.style.display = 'none';
+        list.innerHTML = '';
+        history.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.onclick = () => { 
+                inputStr = item.res; 
+                isTyping = false; 
+                updateDisplays(parseCurrentInput()); 
+            };
+            div.innerHTML = `<div class="h-expr">${item.expr}</div><div class="h-res">${item.res}</div>`;
+            list.appendChild(div);
+        });
+    }
+
+    function memoryStore() {
+        memory.unshift(parseCurrentInput());
+        renderMemory();
+    }
+
+    function memoryRecall() {
+        if (memory.length > 0) {
+            inputStr = formatForInput(memory[0], currentBase);
+            isTyping = false;
+            updateDisplays(memory[0]);
+        }
+    }
+
+    function memClearItem(index) {
+        memory.splice(index, 1);
+        renderMemory();
+    }
+
+    function renderMemory() {
+        const btnToolbar = document.getElementById('mr-toolbar');
+        btnToolbar.style.opacity = memory.length > 0 ? '1' : '0.5';
+
+        const list = document.getElementById('memory-list');
+        const empty = document.getElementById('empty-memory');
+        if (memory.length === 0) { empty.style.display = 'block'; list.innerHTML = ''; return; }
+        
+        empty.style.display = 'none';
+        list.innerHTML = '';
+        memory.forEach((val, index) => {
+            const div = document.createElement('div');
+            div.className = 'memory-item';
+            div.innerHTML = `
+                <div class="m-res">${formatForInput(val, currentBase)}</div>
+                <div class="memory-controls">
+                    <button class="m-ctrl-btn" onclick="memClearItem(${index})">MC</button>
+                    <button class="m-ctrl-btn" onclick="inputStr='${formatForInput(val, currentBase)}'; isTyping=false; updateDisplays(${val}n)">M</button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    // Поддержка физической клавиатуры
+    document.addEventListener('keydown', (e) => {
+        const key = e.key.toUpperCase();
+        if ((key >= '0' && key <= '9') || (key >= 'A' && key <= 'F')) {
+            if (currentBase === 10 && key >= 'A' && key <= 'F') return;
+            if (currentBase === 8 && key >= '8') return;
+            if (currentBase === 2 && key >= '2') return;
+            insertChar(key);
+        } else if (['+', '-', '*', '/', '%'].includes(key)) {
+            insertOp(key);
+        } else if (key === 'ENTER' || key === '=') {
+            e.preventDefault(); calculate();
+        } else if (key === 'BACKSPACE') {
+            backspace();
+        } else if (key === 'ESCAPE') {
+            clearAll();
+        }
+    });
+
+</script>
+</body>
+</html>

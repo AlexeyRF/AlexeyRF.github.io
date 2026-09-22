@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Графический калькулятор</title>
+    <style>
+        :root {
+            --bg-main: #202020;
+            --bg-sidebar: #2d2d2d;
+            --bg-keyboard: #202020;
+            --btn-num: #3b3b3b;
+            --btn-num-hover: #323232;
+            --btn-op: #323232;
+            --btn-op-hover: #3b3b3b;
+            --accent: #4cc2ff;
+            --accent-hover: #47b1e8;
+            --text-main: #ffffff;
+            --border-color: #444;
+        }
+
+        body { margin: 0; padding: 0; display: flex; height: 100vh; background-color: var(--bg-main); color: var(--text-main); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        
+        #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); display: flex; justify-content: center; align-items: center; z-index: 9999; font-size: 20px; color: var(--accent); transition: opacity 0.5s; }
+
+        #toast { position: fixed; bottom: -50px; left: 50%; transform: translateX(-50%); background: #e74c3c; color: white; padding: 10px 20px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 10000; transition: bottom 0.3s ease, opacity 0.3s ease; opacity: 0; font-size: 14px; pointer-events: none; }
+        #toast.show { bottom: 20px; opacity: 1; }
+
+        #hamburger-btn { position: absolute; top: 15px; left: 15px; z-index: 100; background: var(--bg-sidebar); border: 1px solid var(--border-color); color: white; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 18px; }
+        #hamburger-btn:hover { background: #3b3b3b; }
+        
+        #left-nav { position: fixed; top: 0; left: -250px; width: 250px; height: 100%; background-color: var(--bg-sidebar); box-shadow: 2px 0 10px rgba(0,0,0,0.5); z-index: 99; transition: left 0.3s ease; display: flex; flex-direction: column; padding-top: 60px; }
+        #left-nav.open { left: 0; }
+        .nav-link { color: white; text-decoration: none; padding: 15px 20px; border-bottom: 1px solid var(--border-color); transition: background 0.2s; }
+        .nav-link:hover { background-color: #3b3b3b; border-left: 4px solid var(--accent); }
+        .nav-link.active { background-color: #3b3b3b; border-left: 4px solid var(--accent); }
+
+        #canvas-container { flex-grow: 1; position: relative; cursor: grab; }
+        #canvas-container:active { cursor: grabbing; }
+        canvas { display: block; width: 100%; height: 100%; }
+        
+        #sidebar { width: 400px; background-color: var(--bg-sidebar); border-left: 1px solid var(--border-color); display: flex; flex-direction: column; box-shadow: -2px 0 10px rgba(0,0,0,0.3); z-index: 10; height: 100vh; }
+        .header { padding: 15px; font-size: 18px; font-weight: bold; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        
+        #equations-list { flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .equation-card { background-color: #3b3b3b; padding: 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; border-left: 4px solid var(--accent); }
+        .eq-header { display: flex; justify-content: space-between; align-items: center; }
+        
+        input[type="text"] { background-color: #1e1e1e; border: 1px solid #555; color: #fff; padding: 10px; border-radius: 5px; font-family: 'Consolas', monospace; font-size: 16px; outline: none; width: 100%; box-sizing: border-box; }
+        input[type="text"]:focus { border-color: var(--accent); }
+        input[type="text"].active { border-color: var(--accent); background-color: #252526; }
+        
+        .controls { display: flex; gap: 5px; }
+        .btn-icon { background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px; border-radius: 4px; padding: 5px; }
+        .btn-icon:hover { background-color: #555; color: #fff; }
+        
+        .btn { background-color: var(--accent); color: #000; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.8; }
+        
+        #params-container { padding: 10px 15px; border-top: 1px solid var(--border-color); background-color: #252526; max-height: 20vh; overflow-y: auto; }
+        .param-card { margin-bottom: 10px; }
+        .param-header { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; font-family: 'Consolas', monospace; }
+        input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+        #keyboard-area { border-top: 1px solid var(--border-color); background-color: var(--bg-keyboard); padding: 10px; position: relative; }
+        
+        #trig-panel { display: none; position: absolute; bottom: 100%; left: 0; width: 100%; background: #2d2d2d; border-top: 1px solid #444; border-bottom: 1px solid #444; padding: 10px; box-sizing: border-box; grid-template-columns: repeat(5, 1fr); gap: 5px; z-index: 15; }
+        #trig-panel.active { display: grid; }
+
+        .keyboard-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+        
+        .k-btn { background-color: var(--btn-op); color: white; border: none; border-radius: 4px; padding: 12px 0; font-size: 15px; cursor: pointer; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; transition: background 0.1s; }
+        .k-btn:hover { background-color: var(--btn-op-hover); }
+        .k-btn.num { background-color: var(--btn-num); font-weight: bold; font-size: 18px; }
+        .k-btn.num:hover { background-color: var(--btn-num-hover); }
+        .k-btn.accent { background-color: var(--accent); color: black; font-weight: bold; }
+        .k-btn.accent:hover { background-color: var(--accent-hover); }
+        .k-btn.active-state { background-color: var(--accent); color: black; }
+
+        .alt-text { display: none; }
+        .second-mode .primary-text { display: none; }
+        .second-mode .alt-text { display: inline; }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #2d2d2d; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #777; }
+    </style>
+</head>
+<body>
+
+<div id="loader">Загрузка математического ядра...</div>
+<div id="toast"></div>
+
+<button id="hamburger-btn" onclick="toggleNav()">☰</button>
+<div id="left-nav">
+    <a href="graphical.html" class="nav-link active">Графический калькулятор</a>
+    <a href="enginer.html" class="nav-link">Инженерный калькулятор</a>
+    <a href="proger.html" class="nav-link">Калькулятор программиста</a>
+    <a href="convertor.html" class="nav-link">Конвертер величин</a>
+</div>
+
+<div id="canvas-container">
+    <canvas id="graph"></canvas>
+</div>
+
+<div id="sidebar">
+    <div class="header">
+        <span>Графики</span>
+        <button class="btn" onclick="addEquation()">+ Добавить</button>
+    </div>
+    
+    <div id="equations-list"></div>
+    <div id="params-container"></div>
+    
+    <div id="keyboard-area">
+        <div id="trig-panel">
+            <button class="k-btn" onclick="insertMath('sin()')">sin</button>
+            <button class="k-btn" onclick="insertMath('cos()')">cos</button>
+            <button class="k-btn" onclick="insertMath('tan()')">tan</button>
+            <button class="k-btn" onclick="insertMath('cot()')">cot</button>
+            <button class="k-btn" onclick="insertMath('sec()')">sec</button>
+            
+            <button class="k-btn" onclick="insertMath('asin()')">asin</button>
+            <button class="k-btn" onclick="insertMath('acos()')">acos</button>
+            <button class="k-btn" onclick="insertMath('atan()')">atan</button>
+            <button class="k-btn" onclick="insertMath('acot()')">acot</button>
+            <button class="k-btn" onclick="insertMath('csc()')">csc</button>
+        </div>
+
+        <div class="keyboard-grid" id="kb-grid">
+            <button class="k-btn" id="btn-2nd" onclick="toggle2nd()">2nd</button>
+            <button class="k-btn" onclick="insertMath('pi')">π</button>
+            <button class="k-btn" onclick="insertMath('e')">e</button>
+            <button class="k-btn" onclick="clearCurrent()">C</button>
+            <button class="k-btn" onclick="backspace()">⌫</button>
+            
+            <button class="k-btn dynamic-btn" onclick="insertDynamic('^2', '^3')">
+                <span class="primary-text">x²</span><span class="alt-text">x³</span>
+            </button>
+            <button class="k-btn" onclick="insertMath('^-1')">¹/x</button>
+            <button class="k-btn" onclick="insertMath('abs()')">|x|</button>
+            <button class="k-btn" onclick="insertMath('x')"><i>x</i></button>
+            <button class="k-btn" onclick="insertMath('y')"><i>y</i></button>
+            
+            <button class="k-btn dynamic-btn" onclick="insertDynamic('sqrt()', 'cbrt()')">
+                <span class="primary-text">√x</span><span class="alt-text">³√x</span>
+            </button>
+            <button class="k-btn" onclick="insertMath('(')">(</button>
+            <button class="k-btn" onclick="insertMath(')')">)</button>
+            <button class="k-btn" onclick="toggleTrig()" id="btn-trig">Trig</button>
+            <button class="k-btn" onclick="insertMath('/')">÷</button>
+            
+            <button class="k-btn dynamic-btn" onclick="insertDynamic('^', '^(1/)')">
+                <span class="primary-text">xʸ</span><span class="alt-text">x^(1/n)</span>
+            </button>
+            <button class="k-btn num" onclick="insertMath('7')">7</button>
+            <button class="k-btn num" onclick="insertMath('8')">8</button>
+            <button class="k-btn num" onclick="insertMath('9')">9</button>
+            <button class="k-btn" onclick="insertMath('*')">×</button>
+            
+            <button class="k-btn dynamic-btn" onclick="insertDynamic('10^', '2^')">
+                <span class="primary-text">10ˣ</span><span class="alt-text">2ˣ</span>
+            </button>
+            <button class="k-btn num" onclick="insertMath('4')">4</button>
+            <button class="k-btn num" onclick="insertMath('5')">5</button>
+            <button class="k-btn num" onclick="insertMath('6')">6</button>
+            <button class="k-btn" onclick="insertMath('-')">−</button>
+            
+            <button class="k-btn dynamic-btn" onclick="insertDynamic('log10()', 'log(, )')">
+                <span class="primary-text">log</span><span class="alt-text">logᵦ</span>
+            </button>
+            <button class="k-btn num" onclick="insertMath('1')">1</button>
+            <button class="k-btn num" onclick="insertMath('2')">2</button>
+            <button class="k-btn num" onclick="insertMath('3')">3</button>
+            <button class="k-btn" onclick="insertMath('+')">+</button>
+            
+            <button class="k-btn dynamic-btn" onclick="insertDynamic('log()', 'e^')">
+                <span class="primary-text">ln</span><span class="alt-text">eˣ</span>
+            </button>
+            <button class="k-btn num" onclick="insertMath('-')">±</button>
+            <button class="k-btn num" onclick="insertMath('0')">0</button>
+            <button class="k-btn num" onclick="insertMath('.')">,</button>
+            <button class="k-btn accent" onclick="insertMath('=')">=</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.onload = () => {
+        const script = document.createElement('script');
+        script.src = "math.js";
+        script.onload = () => {
+            document.getElementById('loader').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loader').style.display = 'none';
+                initApp();
+            }, 500);
+        };
+        document.head.appendChild(script);
+    };
+
+    function showError(msg) {
+        const toast = document.getElementById('toast');
+        toast.innerText = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+
+    let is2ndActive = false;
+    
+    function toggleNav() {
+        document.getElementById('left-nav').classList.toggle('open');
+    }
+
+    function toggle2nd() {
+        is2ndActive = !is2ndActive;
+        const kbGrid = document.getElementById('kb-grid');
+        const btn2nd = document.getElementById('btn-2nd');
+        if (is2ndActive) {
+            kbGrid.classList.add('second-mode');
+            btn2nd.classList.add('active-state');
+        } else {
+            kbGrid.classList.remove('second-mode');
+            btn2nd.classList.remove('active-state');
+        }
+    }
+
+    function toggleTrig() {
+        const panel = document.getElementById('trig-panel');
+        const btn = document.getElementById('btn-trig');
+        panel.classList.toggle('active');
+        if(panel.classList.contains('active')) {
+            btn.classList.add('active-state');
+        } else {
+            btn.classList.remove('active-state');
+        }
+    }
+
+    const canvas = document.getElementById('graph');
+    let ctx;
+    let equations = [];
+    let globalParams = {};
+    let view = { offsetX: 0, offsetY: 0, scale: 60 };
+    const colors = ['#569CD6', '#C586C0', '#CE9178', '#DCDCAA', '#4EC9B0', '#D69D85', '#F5E050'];
+    let activeInputId = null;
+    let currentMouse = null; 
+
+    function initApp() {
+        ctx = canvas.getContext('2d');
+        math.config({ predictable: true });
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        setupInteraction();
+        
+        addEquation();
+    }
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+        if(view.offsetX === 0) {
+            view.offsetX = canvas.width / 2;
+            view.offsetY = canvas.height / 2;
+        }
+        draw();
+    }
+
+    function setupInteraction() {
+        let isDragging = false, lastMouse = { x: 0, y: 0 };
+        canvas.addEventListener('mousedown', e => { isDragging = true; lastMouse = { x: e.clientX, y: e.clientY }; });
+        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('mousemove', e => {
+            let rect = canvas.getBoundingClientRect();
+            currentMouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+
+            if (!isDragging) {
+                draw();
+                return;
+            }
+            view.offsetX += (e.clientX - lastMouse.x);
+            view.offsetY += (e.clientY - lastMouse.y);
+            lastMouse = { x: e.clientX, y: e.clientY };
+            draw();
+        });
+        canvas.addEventListener('mouseleave', () => { currentMouse = null; draw(); });
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const zoom = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+            view.offsetX = e.clientX - (e.clientX - view.offsetX) * zoom;
+            view.offsetY = e.clientY - (e.clientY - view.offsetY) * zoom;
+            view.scale *= zoom;
+            draw();
+        }, { passive: false });
+    }
+
+    function extractVars(expr) {
+        let v = new Set();
+        try {
+            math.parse(expr).traverse(n => {
+                if (n.isSymbolNode && !['e', 'pi', 'i'].includes(n.name) && typeof math[n.name] !== 'function') v.add(n.name);
+            });
+        } catch(e){}
+        return Array.from(v);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawGrid();
+
+        let scope = { e: Math.E, pi: Math.PI };
+        for (let p in globalParams) scope[p] = globalParams[p].val;
+
+        equations.forEach(eq => {
+            if (!eq.visible || !eq.text.trim()) return;
+
+            let text = eq.text;
+            let op = '=';
+            let parts = [text];
+            ['>=', '<=', '>', '<', '='].forEach(o => {
+                if (parts.length === 1 && text.includes(o)) {
+                    op = o;
+                    parts = text.split(o);
+                }
+            });
+
+            let L = parts[0].trim();
+            let R = parts.length > 1 ? parts[1].trim() : '';
+
+            if (!R) { L = 'y'; R = parts[0].trim(); }
+
+            if ((R === 'y' || R === 'x') && (L !== 'x' && L !== 'y' && L !== 'f(x)')) {
+                let temp = L; L = R; R = temp;
+                if (op === '>') op = '<'; else if (op === '<') op = '>';
+                else if (op === '>=') op = '<='; else if (op === '<=') op = '>=';
+            }
+
+            let allVars = new Set([...extractVars(L), ...extractVars(R)]);
+            let hasX = allVars.has('x');
+            let hasY = allVars.has('y');
+
+            try {
+                if (L === 'y' || L === 'f(x)') {
+                    drawFunctionY(R, op, scope, eq.color);
+                } else if (L === 'x') {
+                    drawFunctionX(R, op, scope, eq.color);
+                } else if (hasX && !hasY) {
+                    drawRootsX(`${L} - (${R})`, op, scope, eq.color);
+                } else if (hasY && !hasX) {
+                    drawRootsY(`${L} - (${R})`, op, scope, eq.color);
+                } else {
+                    drawFunctionY(`${L} - (${R})`, op, scope, eq.color);
+                }
+            } catch(e) {}
+        });
+
+        drawTooltip();
+    }
+
+    function drawTooltip() {
+        if (!currentMouse) return;
+
+        let mathX = (currentMouse.x - view.offsetX) / view.scale;
+        
+        let closest = null;
+        let minPxDist = 20;
+
+        let scope = { e: Math.E, pi: Math.PI };
+        for (let p in globalParams) scope[p] = globalParams[p].val;
+
+        equations.forEach(eq => {
+            if (!eq.visible || !eq.text.trim()) return;
+            
+            let parts = eq.text.split(/=|<|>|<=|>=/);
+            let R = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+            let L = parts.length > 1 ? parts[0].trim() : 'y';
+
+            if (L === 'y' || L === 'f(x)' || !parts[1]) {
+                try {
+                    let compiled = math.compile(R);
+                    scope.x = mathX;
+                    let valY = compiled.evaluate(scope);
+                    if (typeof valY === 'number' && !isNaN(valY) && isFinite(valY)) {
+                        let pxY = view.offsetY - valY * view.scale;
+                        let dist = Math.abs(currentMouse.y - pxY);
+                        if (dist < minPxDist) {
+                            closest = { eqMathX: mathX, eqMathY: valY, pxX: currentMouse.x, pxY: pxY, color: eq.color };
+                            minPxDist = dist;
+                        }
+                    }
+                } catch(e) {}
+            }
+        });
+
+        if (closest) {
+            ctx.beginPath();
+            ctx.arc(closest.pxX, closest.pxY, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = closest.color;
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+
+            const formatCoord = (val) => Number(val.toFixed(5)).toString();
+            let text = `(${formatCoord(closest.eqMathX)}; ${formatCoord(closest.eqMathY)})`;
+            
+            ctx.font = '13px "Segoe UI"';
+            ctx.textBaseline = 'middle';
+            let textW = ctx.measureText(text).width;
+            let boxW = textW + 24;
+            let boxH = 28;
+            let boxX = closest.pxX + 15;
+            let boxY = closest.pxY - 14;
+
+            if (boxX + boxW > canvas.width) boxX = closest.pxX - boxW - 15;
+            if (boxY < 0) boxY = 5;
+            if (boxY + boxH > canvas.height) boxY = canvas.height - boxH - 5;
+
+            
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+            else ctx.rect(boxX, boxY, boxW, boxH); 
+            
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fill();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#666';
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.fillText(text, boxX + 12, boxY + boxH / 2);
+        }
+    }
+
+    function drawFunctionY(expr, op, scope, color) {
+        let compiled = math.compile(expr);
+        let segments = [], currentSegment = [];
+
+        for (let px = 0; px <= canvas.width; px += 2) {
+            scope.x = (px - view.offsetX) / view.scale;
+            try {
+                let mathY = compiled.evaluate(scope);
+                if (typeof mathY === 'number' && !isNaN(mathY) && isFinite(mathY)) {
+                    currentSegment.push({ x: px, y: view.offsetY - mathY * view.scale });
+                } else {
+                    if (currentSegment.length > 0) { segments.push(currentSegment); currentSegment = []; }
+                }
+            } catch(e) { if (currentSegment.length > 0) { segments.push(currentSegment); currentSegment = []; } }
+        }
+        if (currentSegment.length > 0) segments.push(currentSegment);
+
+        segments.forEach(seg => {
+            ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+            for (let i = 0; i < seg.length; i++) {
+                if (i > 0 && Math.abs(seg[i].y - seg[i-1].y) > canvas.height * 0.4) {
+                    ctx.stroke(); ctx.beginPath(); ctx.moveTo(seg[i].x, seg[i].y);
+                } else if (i === 0) { ctx.moveTo(seg[i].x, seg[i].y); } 
+                else { ctx.lineTo(seg[i].x, seg[i].y); }
+            }
+            ctx.stroke();
+
+            if (op !== '=') {
+                ctx.beginPath(); ctx.moveTo(seg[0].x, seg[0].y);
+                for (let i = 1; i < seg.length; i++) {
+                    if (Math.abs(seg[i].y - seg[i-1].y) > canvas.height * 0.4) {
+                        ctx.lineTo(seg[i].x, (op === '<' || op === '<=') ? canvas.height : 0);
+                        ctx.lineTo(seg[i].x, seg[i].y);
+                    } else { ctx.lineTo(seg[i].x, seg[i].y); }
+                }
+                if (op === '<' || op === '<=') { ctx.lineTo(seg[seg.length-1].x, canvas.height); ctx.lineTo(seg[0].x, canvas.height); } 
+                else { ctx.lineTo(seg[seg.length-1].x, 0); ctx.lineTo(seg[0].x, 0); }
+                ctx.fillStyle = color + '44'; ctx.fill();
+            }
+        });
+    }
+
+    function drawFunctionX(expr, op, scope, color) {
+        let compiled = math.compile(expr);
+        let segments = [], currentSegment = [];
+
+        for (let py = 0; py <= canvas.height; py += 2) {
+            scope.y = (view.offsetY - py) / view.scale;
+            try {
+                let mathX = compiled.evaluate(scope);
+                if (typeof mathX === 'number' && !isNaN(mathX) && isFinite(mathX)) {
+                    currentSegment.push({ x: view.offsetX + mathX * view.scale, y: py });
+                } else {
+                    if (currentSegment.length > 0) { segments.push(currentSegment); currentSegment = []; }
+                }
+            } catch(e) { if (currentSegment.length > 0) { segments.push(currentSegment); currentSegment = []; } }
+        }
+        if (currentSegment.length > 0) segments.push(currentSegment);
+
+        segments.forEach(seg => {
+            ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+            for (let i = 0; i < seg.length; i++) {
+                if (i > 0 && Math.abs(seg[i].x - seg[i-1].x) > canvas.width * 0.4) {
+                    ctx.stroke(); ctx.beginPath(); ctx.moveTo(seg[i].x, seg[i].y);
+                } else if (i === 0) { ctx.moveTo(seg[i].x, seg[i].y); } 
+                else { ctx.lineTo(seg[i].x, seg[i].y); }
+            }
+            ctx.stroke();
+            
+            if (op !== '=') {
+                ctx.beginPath(); ctx.moveTo(seg[0].x, seg[0].y);
+                for (let i = 1; i < seg.length; i++) {
+                    if (Math.abs(seg[i].x - seg[i-1].x) > canvas.width * 0.4) {
+                        ctx.lineTo((op === '<' || op === '<=') ? 0 : canvas.width, seg[i].y);
+                        ctx.lineTo(seg[i].x, seg[i].y);
+                    } else { ctx.lineTo(seg[i].x, seg[i].y); }
+                }
+                if (op === '<' || op === '<=') { 
+                    ctx.lineTo(0, seg[seg.length-1].y); ctx.lineTo(0, seg[0].y); 
+                } else { 
+                    ctx.lineTo(canvas.width, seg[seg.length-1].y); ctx.lineTo(canvas.width, seg[0].y); 
+                }
+                ctx.fillStyle = color + '44'; ctx.fill();
+            }
+        });
+    }
+
+    function drawRootsX(expr, op, scope, color) {
+        let compiled = math.compile(expr);
+        let roots = [], prev_val = null;
+
+        if (op !== '=') {
+            ctx.fillStyle = color + '44';
+            for (let px = 0; px <= canvas.width; px += 4) {
+                scope.x = (px - view.offsetX) / view.scale;
+                try {
+                    let val = compiled.evaluate(scope);
+                    let cond = false;
+                    if (op === '<') cond = val < 0; else if (op === '<=') cond = val <= 0;
+                    else if (op === '>') cond = val > 0; else if (op === '>=') cond = val >= 0;
+                    if (cond) ctx.fillRect(px, 0, 4, canvas.height);
+                } catch(e){}
+            }
+        }
+
+        for (let px = 0; px <= canvas.width; px += 1) {
+            scope.x = (px - view.offsetX) / view.scale;
+            try {
+                let val = compiled.evaluate(scope);
+                if (prev_val !== null && Math.sign(val) !== Math.sign(prev_val) && !isNaN(val)) {
+                    let exact_px = px - Math.abs(val / (val - prev_val));
+                    roots.push(exact_px);
+                }
+                prev_val = val;
+            } catch(e){}
+        }
+
+        ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+        roots.forEach(rpx => { ctx.moveTo(rpx, 0); ctx.lineTo(rpx, canvas.height); });
+        ctx.stroke();
+    }
+
+    function drawRootsY(expr, op, scope, color) {
+        let compiled = math.compile(expr);
+        let roots = [], prev_val = null;
+
+        if (op !== '=') {
+            ctx.fillStyle = color + '44';
+            for (let py = 0; py <= canvas.height; py += 4) {
+                scope.y = (view.offsetY - py) / view.scale;
+                try {
+                    let val = compiled.evaluate(scope);
+                    let cond = false;
+                    if (op === '<') cond = val < 0; else if (op === '<=') cond = val <= 0;
+                    else if (op === '>') cond = val > 0; else if (op === '>=') cond = val >= 0;
+                    if (cond) ctx.fillRect(0, py, canvas.width, 4);
+                } catch(e){}
+            }
+        }
+
+        for (let py = 0; py <= canvas.height; py += 1) {
+            scope.y = (view.offsetY - py) / view.scale;
+            try {
+                let val = compiled.evaluate(scope);
+                if (prev_val !== null && Math.sign(val) !== Math.sign(prev_val) && !isNaN(val)) {
+                    let exact_py = py - Math.abs(val / (val - prev_val));
+                    roots.push(exact_py);
+                }
+                prev_val = val;
+            } catch(e){}
+        }
+
+        ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+        roots.forEach(rpy => { ctx.moveTo(0, rpy); ctx.lineTo(canvas.width, rpy); });
+        ctx.stroke();
+    }
+
+    function drawGrid() {
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.fillStyle = '#aaa'; ctx.font = '12px "Segoe UI"';
+        
+        let idealMathStep = 100 / view.scale; 
+        let exponent = Math.floor(Math.log10(idealMathStep));
+        let fraction = idealMathStep / Math.pow(10, exponent);
+        
+        let mathStep;
+        if (fraction <= 1.5) mathStep = 1 * Math.pow(10, exponent);
+        else if (fraction <= 3) mathStep = 2 * Math.pow(10, exponent);
+        else if (fraction <= 7) mathStep = 5 * Math.pow(10, exponent);
+        else mathStep = 10 * Math.pow(10, exponent);
+
+        const formatTick = (val) => Number(val.toFixed(10)).toString();
+
+        let startX = Math.floor((-view.offsetX) / view.scale / mathStep) * mathStep;
+        let endX = (canvas.width - view.offsetX) / view.scale;
+        for (let x = startX; x <= endX; x += mathStep) {
+            let px = view.offsetX + x * view.scale;
+            ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height); ctx.stroke();
+            
+            if (Math.abs(x) > 1e-10) { 
+                let yPos = view.offsetY;
+                if (yPos < 0) yPos = 15;
+                if (yPos > canvas.height) yPos = canvas.height - 5;
+                ctx.fillText(formatTick(x), px + 5, yPos + 15);
+            }
+        }
+
+        let startY = Math.floor((view.offsetY - canvas.height) / view.scale / mathStep) * mathStep;
+        let endY = view.offsetY / view.scale;
+        for (let y = startY; y <= endY; y += mathStep) {
+            let py = view.offsetY - y * view.scale;
+            ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(canvas.width, py); ctx.stroke();
+            
+            if (Math.abs(y) > 1e-10) {
+                let xPos = view.offsetX;
+                if (xPos < 0) xPos = 5;
+                if (xPos > canvas.width) xPos = canvas.width - 30;
+                ctx.fillText(formatTick(y), xPos + 5, py - 5);
+            }
+        }
+
+        ctx.strokeStyle = '#666'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, view.offsetY); ctx.lineTo(canvas.width, view.offsetY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(view.offsetX, 0); ctx.lineTo(view.offsetX, canvas.height); ctx.stroke();
+        
+        ctx.fillText("0", view.offsetX + 5, view.offsetY + 15);
+    }
+
+    function addEquation() {
+        let newId = Date.now();
+        equations.push({ id: newId, text: '', color: colors[equations.length % colors.length], visible: true });
+        renderEquations();
+        setActiveInput(newId);
+    }
+
+    function setActiveInput(id) {
+        activeInputId = id;
+        document.querySelectorAll('#equations-list input[type="text"]').forEach(inp => inp.classList.remove('active'));
+        let input = document.getElementById('eq-input-' + id);
+        if (input) {
+            input.classList.add('active');
+            input.focus();
+        }
+    }
+
+    function updateEq(index, field, value) {
+        equations[index][field] = value;
+        if (field === 'text') extractParams();
+        draw();
+    }
+
+    function toggleEq(index) { equations[index].visible = !equations[index].visible; renderEquations(); draw(); }
+    
+    function deleteEq(index) { 
+        equations.splice(index, 1); 
+        extractParams(); 
+        renderEquations(); 
+        if (equations.length > 0) setActiveInput(equations[equations.length-1].id);
+        draw(); 
+    }
+
+    function derive(index) {
+        let exprStr = equations[index].text;
+        let parts = exprStr.split(/=|<|>|<=|>=/);
+        let targetExpr = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+        
+        try {
+            let derived = math.derivative(targetExpr, 'x').toString();
+            equations.push({ id: Date.now(), text: `y = ${derived}`, color: colors[equations.length % colors.length], visible: true });
+            extractParams(); renderEquations(); draw();
+        } catch(e) { 
+            showError('Не удалось вычислить производную. Проверьте формулу (убедитесь, что это y = f(x)).');
+        }
+    }
+
+    function renderEquations() {
+        const list = document.getElementById('equations-list');
+        list.innerHTML = '';
+        equations.forEach((eq, index) => {
+            const div = document.createElement('div');
+            div.className = 'equation-card';
+            div.style.borderLeftColor = eq.color;
+            div.innerHTML = `
+                <div class="eq-header">
+                    <input type="color" value="${eq.color}" style="background:none; border:none; width:24px; height:24px; cursor:pointer;" onchange="updateEq(${index}, 'color', this.value)">
+                    <div class="controls">
+                        <button class="btn-icon" title="Взять производную" onclick="derive(${index})">dx</button>
+                        <button class="btn-icon" onclick="toggleEq(${index})">${eq.visible ? '👁️' : '🚫'}</button>
+                        <button class="btn-icon" onclick="deleteEq(${index})">❌</button>
+                    </div>
+                </div>
+                <input type="text" id="eq-input-${eq.id}" value="${eq.text}" 
+                    onfocus="setActiveInput(${eq.id})" 
+                    oninput="updateEq(${index}, 'text', this.value)">
+            `;
+            list.appendChild(div);
+        });
+        
+        if (activeInputId) {
+            let input = document.getElementById('eq-input-' + activeInputId);
+            if (input) input.classList.add('active');
+        }
+    }
+
+    function insertDynamic(primary, secondary) {
+        insertMath(is2ndActive ? secondary : primary);
+    }
+
+    function insertMath(text) {
+        if (equations.length === 0) addEquation();
+        if (!activeInputId && equations.length > 0) setActiveInput(equations[0].id);
+        
+        if (activeInputId) {
+            let input = document.getElementById('eq-input-' + activeInputId);
+            if (input) {
+                let start = input.selectionStart;
+                let val = input.value;
+                input.value = val.substring(0, start) + text + val.substring(input.selectionEnd);
+                
+                let eqIndex = equations.findIndex(e => e.id === activeInputId);
+                if (eqIndex !== -1) equations[eqIndex].text = input.value;
+
+                input.focus();
+                let newPos = start + text.length;
+                
+                if (text.endsWith('()')) newPos -= 1; 
+                else if (text.endsWith(', )')) newPos -= 3;
+                else if (text.endsWith('/)')) newPos -= 1; 
+                
+                input.setSelectionRange(newPos, newPos);
+                
+                extractParams();
+                draw();
+            }
+        }
+    }
+
+    function backspace() {
+        if (activeInputId) {
+            let input = document.getElementById('eq-input-' + activeInputId);
+            if (input) {
+                let start = input.selectionStart;
+                let end = input.selectionEnd;
+                let val = input.value;
+                
+                if (start === end && start > 0) {
+                    input.value = val.substring(0, start - 1) + val.substring(end);
+                    input.setSelectionRange(start - 1, start - 1);
+                } else if (start !== end) {
+                    input.value = val.substring(0, start) + val.substring(end);
+                    input.setSelectionRange(start, start);
+                }
+                
+                let eqIndex = equations.findIndex(e => e.id === activeInputId);
+                if (eqIndex !== -1) equations[eqIndex].text = input.value;
+                
+                input.focus();
+                extractParams();
+                draw();
+            }
+        }
+    }
+
+    function clearCurrent() {
+        if (activeInputId) {
+            let input = document.getElementById('eq-input-' + activeInputId);
+            if (input) {
+                input.value = '';
+                let eqIndex = equations.findIndex(e => e.id === activeInputId);
+                if (eqIndex !== -1) equations[eqIndex].text = '';
+                input.focus();
+                extractParams();
+                draw();
+            }
+        }
+    }
+
+    function extractParams() {
+        let newParams = new Set();
+        equations.forEach(eq => {
+            extractVars(eq.text).forEach(v => {
+                if (v !== 'x' && v !== 'y') newParams.add(v);
+            });
+        });
+        Object.keys(globalParams).forEach(k => { if(!newParams.has(k)) delete globalParams[k]; });
+        newParams.forEach(k => { if(!(k in globalParams)) globalParams[k] = { val: 1, min: -10, max: 10, step: 0.1 }; });
+        renderParams();
+    }
+
+    function renderParams() {
+        const container = document.getElementById('params-container');
+        container.innerHTML = Object.keys(globalParams).length > 0 ? `<div style="margin-bottom:10px; color:#aaa; font-size:12px;">ПАРАМЕТРЫ:</div>` : '';
+        Object.keys(globalParams).forEach(p => {
+            let pData = globalParams[p];
+            const div = document.createElement('div');
+            div.className = 'param-card';
+            div.innerHTML = `
+                <div class="param-header">
+                    <span><b>${p}</b> = <span id="val-${p}">${pData.val}</span></span>
+                </div>
+                <input type="range" min="${pData.min}" max="${pData.max}" step="${pData.step}" value="${pData.val}" 
+                    oninput="updateParam('${p}', this.value)">
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function updateParam(name, value) {
+        globalParams[name].val = parseFloat(value);
+        document.getElementById(`val-${name}`).innerText = value;
+        draw();
+    }
+</script>
+</body>
+</html>

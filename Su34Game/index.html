@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Su-34 game</title>
+<style>
+  body {
+    background: #050505;
+    overflow: hidden;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: "Courier New", Courier, monospace;
+  }
+  #game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+  }
+  #game-container::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0),
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.2) 50%,
+      rgba(0, 0, 0, 0.2)
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+  }
+
+  #settings-panel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 260px;
+    background: #111;
+    border: 1px solid #555;
+    padding: 15px;
+    color: #fff;
+    z-index: 1000;
+    border-radius: 0;
+    max-height: 90vh;
+    overflow-y: auto;
+    font-family: "Courier New", Courier, monospace;
+  }
+  #settings-panel h3 {
+    margin-top: 0;
+    font-size: 16px;
+    border-bottom: 1px dashed #555;
+    padding-bottom: 5px;
+    color: #0f0;
+  }
+  #settings-panel label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #fff;
+  }
+  #settings-panel input[type="file"], #settings-panel select {
+    width: 100%;
+    margin-bottom: 15px;
+    background: #222;
+    color: #fff;
+    border: 1px solid #555;
+    padding: 4px;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+  #settings-panel input[type="range"] {
+    width: 100%;
+    margin-bottom: 15px;
+    accent-color: #0f0;
+  }
+  #settings-panel button {
+    width: 100%;
+    margin-bottom: 5px;
+    background: #222;
+    color: #0f0;
+    border: 1px solid #555;
+    padding: 5px;
+    font-family: inherit;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #settings-panel button:hover {
+    background: #0f0;
+    color: #000;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+</div>
+
+<div id="settings-panel">
+    <h3>Настройки [TAB]</h3>
+    <label>Своя карта (Подложка):</label>
+    <input type="file" id="map-upload" accept="image/*">
+    <label>Колонки (Разрешение): <span id="col-val">150</span></label>
+    <input type="range" id="col-slider" min="100" max="600" value="150">
+    <label>Масштаб карты: <span id="scale-val">50</span></label>
+    <input type="range" id="map-scale" min="1" max="500" value="50">
+    <label>Дальность тумана: <span id="fog-val">6000</span></label>
+    <input type="range" id="fog-slider" min="1000" max="20000" value="6000" step="500">
+    <label>Режим отрисовки:</label>
+    <select id="mode-select">
+        <option value="0">ASCII Классика</option>
+        <option value="1">ASCII Цветной</option>
+        <option value="2" selected>Full Color</option>
+    </select>
+    <hr style="border-color:#4af626;">
+    <h3>Магазин (База H)</h3>
+    <button id="upg-spd" onclick="tryBuy('speed')"></button>
+    <button id="upg-alt" onclick="tryBuy('alt')"></button>
+    <button id="upg-ammo" onclick="tryBuy('ammo')"></button>
+    <button id="upg-flare" onclick="tryBuy('flare')"></button>
+    <div id="shop-msg" style="color:#ffaa00; font-size:11px; margin-top:5px;">Прилетите на базу (H) для апгрейдов</div>
+</div>
+
+<script>
+let COLS = 150, ROWS = 45;
+let charW = 9, charH = 15;
+let chars, fgs, bgs;
+let renderMode = 2; // Default to Full Color
+let mapData = null, mapW = 0, mapH = 0, mapScale = 50, fogDistance = 6000;
+
+// Game State
+let isLanded = true;
+let posX = 0, posY = 0, altitude = 10;
+let pitch = 0, roll = 0, yaw = 0;
+let targetPitch = 0, targetRoll = 0;
+let velocity = 0, throttle = 0.0;
+let stallSpeed = 80;
+let vx = 0, vy = 0, vz = 0;
+let overspeedTimer = 0;
+let engineFailed = false;
+
+let upgrades = { speedLevel: 0, altLevel: 0, ammoLevel: 0, flareLevel: 0 };
+let money = parseInt(localStorage.getItem('su34_money')) || 0;
+
+function getMaxSpeed() { return Math.min(1900, 300 + upgrades.speedLevel * 100); }
+function getMaxAlt() { return Math.min(17000, 2000 + upgrades.altLevel * 2000); }
+function getMaxAmmo() { return Math.min(6, 2 + upgrades.ammoLevel * 2); }
+function getFlareCD() { return Math.max(1, 5 - upgrades.flareLevel * 1.5); }
+
+let bombsCount = getMaxAmmo();
+let bomb = null;
+let targets = [];
+
+let pvoActive = false, pvoType = '', pvoTimer = 20;
+let missiles = [], flares = [], flareCDTimer = 0;
+let pvoLaunchers = [];
+
+let crashMsg = "", crashTimer = 0;
+let bombHitMsg = "", bombHitTimer = 0;
+
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+ctx.textBaseline = 'top';
+
+function updateShopUI() {
+    localStorage.setItem('su34_money', money);
+    
+    let spdText = upgrades.speedLevel >= 16 ? "МАКС" : `$${500 * (upgrades.speedLevel + 1)}`;
+    document.getElementById('upg-spd').innerText = `Скорость (Ур ${upgrades.speedLevel}): ${spdText}`;
+    
+    let altText = upgrades.altLevel >= 8 ? "МАКС" : `$${500 * (upgrades.altLevel + 1)}`;
+    document.getElementById('upg-alt').innerText = `Высота (Ур ${upgrades.altLevel}): ${altText}`;
+    
+    let ammoText = upgrades.ammoLevel >= 2 ? "МАКС" : `$${1000 * (upgrades.ammoLevel + 1)}`;
+    document.getElementById('upg-ammo').innerText = `Бомбы (Ур ${upgrades.ammoLevel}): ${ammoText}`;
+    
+    document.getElementById('upg-flare').innerText = `Ловушки (Ур ${upgrades.flareLevel}): $${800 * (upgrades.flareLevel + 1)}`;
+}
+updateShopUI();
+
+window.tryBuy = function(type) {
+    if (Math.hypot(posX, posY) > 1500) {
+        document.getElementById('shop-msg').innerText = "ВЕРНИТЕСЬ НА БАЗУ (H)!";
+        return;
+    }
+    
+    if (type === 'speed' && upgrades.speedLevel >= 16) { document.getElementById('shop-msg').innerText = "МАКСИМУМ!"; return; }
+    if (type === 'alt' && upgrades.altLevel >= 8) { document.getElementById('shop-msg').innerText = "МАКСИМУМ!"; return; }
+    if (type === 'ammo' && upgrades.ammoLevel >= 2) { document.getElementById('shop-msg').innerText = "МАКСИМУМ!"; return; }
+
+    let cost = 0;
+    if (type === 'speed') cost = 500 * (upgrades.speedLevel + 1);
+    if (type === 'alt') cost = 500 * (upgrades.altLevel + 1);
+    if (type === 'ammo') cost = 1000 * (upgrades.ammoLevel + 1);
+    if (type === 'flare') cost = 800 * (upgrades.flareLevel + 1);
+
+    if (money >= cost) {
+        money -= cost; upgrades[type+'Level']++;
+        document.getElementById('shop-msg').innerText = "УЛУЧШЕНО!";
+        updateShopUI();
+    } else {
+        document.getElementById('shop-msg').innerText = "НЕДОСТАТОЧНО ДЕНЕГ!";
+    }
+};
+
+function updateResolution(cols) {
+    COLS = parseInt(cols);
+    ROWS = Math.floor((canvas.height * COLS * 0.6) / canvas.width);
+    if (ROWS < 15) ROWS = 15;
+    chars = new Array(ROWS * COLS);
+    fgs = new Array(ROWS * COLS);
+    bgs = new Array(ROWS * COLS);
+    charW = canvas.width / COLS;
+    charH = canvas.height / ROWS;
+    ctx.font = `bold ${charH}px "Courier New", Courier, monospace`;
+}
+
+function resize() {
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    updateResolution(document.getElementById('col-slider').value);
+}
+window.addEventListener('resize', resize); resize();
+
+document.getElementById('col-slider').addEventListener('input', e => { document.getElementById('col-val').innerText = e.target.value; updateResolution(e.target.value); });
+document.getElementById('map-scale').addEventListener('input', e => { mapScale = parseFloat(e.target.value); document.getElementById('scale-val').innerText = e.target.value; });
+document.getElementById('fog-slider').addEventListener('input', e => { fogDistance = parseInt(e.target.value); document.getElementById('fog-val').innerText = fogDistance; });
+document.getElementById('mode-select').addEventListener('change', e => renderMode = parseInt(e.target.value));
+
+document.getElementById('map-upload').addEventListener('change', e => {
+    let file = e.target.files[0]; if (!file) return;
+    let img = new Image(); let url = URL.createObjectURL(file);
+    img.onload = () => {
+        let off = document.createElement('canvas');
+        let maxDim = 1024, w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) { let ratio = Math.min(maxDim/w, maxDim/h); w = Math.floor(w * ratio); h = Math.floor(h * ratio); }
+        off.width = w; off.height = h;
+        let offCtx = off.getContext('2d'); offCtx.drawImage(img, 0, 0, w, h);
+        mapData = offCtx.getImageData(0, 0, w, h).data; mapW = w; mapH = h;
+        URL.revokeObjectURL(url);
+    }; img.src = url;
+});
+
+document.querySelectorAll('#settings-panel input, #settings-panel select, #settings-panel button').forEach(el => {
+    el.addEventListener('change', () => el.blur()); el.addEventListener('mouseup', () => el.blur());
+});
+
+let keys = {};
+window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') { if (e.code !== 'Tab') return; }
+    
+    // Prevent default browser scrolling
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) || e.key === ' ') e.preventDefault();
+    
+    keys[e.code] = true;
+    if (e.key) keys[e.key.toLowerCase()] = true;
+    
+    if (e.code === 'Tab') {
+        e.preventDefault(); let panel = document.getElementById('settings-panel');
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+    if (e.code === 'Digit0') { 
+        renderMode = (renderMode + 1) % 3; 
+        document.getElementById('mode-select').value = renderMode.toString(); 
+    }
+    if (e.code.startsWith('Digit') && e.code !== 'Digit0') {
+        throttle = parseInt(e.code.replace('Digit', '')) / 9;
+    }
+});
+window.addEventListener('keyup', e => {
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) || e.key === ' ') e.preventDefault();
+    keys[e.code] = false;
+    if (e.key) keys[e.key.toLowerCase()] = false;
+});
+
+function crashPlane(reason) {
+    upgrades = { speedLevel: 0, altLevel: 0, ammoLevel: 0, flareLevel: 0 };
+    // Баланс (money) сохраняется после падения
+    posX = 0; posY = 0; altitude = 10;
+    pitch = 0; roll = 0; yaw = 0; targetPitch = 0; targetRoll = 0;
+    velocity = 0; throttle = 0; isLanded = true; vx = 0; vy = 0; vz = 0;
+    overspeedTimer = 0; engineFailed = false;
+    bombsCount = getMaxAmmo(); bomb = null; pvoActive = false; missiles = []; flares = []; pvoTimer = 20;
+    pvoLaunchers = [];
+    crashMsg = "КРУШЕНИЕ! " + reason; crashTimer = 5.0;
+    updateShopUI();
+}
+
+function checkBombHit(bx, by) {
+    let hit = false;
+    for (let t of targets) {
+        if (!t.active) continue;
+        if (Math.hypot(t.x - bx, t.y - by) < 500) {
+            t.active = false; money += 500; hit = true;
+            bombHitMsg = "ЦЕЛЬ УНИЧТОЖЕНА +$500"; bombHitTimer = 3.0;
+            updateShopUI();
+        }
+    }
+    for (let l of pvoLaunchers) {
+        if (!l.active) continue;
+        if (Math.hypot(l.x - bx, l.y - by) < 400) {
+            l.active = false; money += 1500; hit = true;
+            bombHitMsg = "ПВО УНИЧТОЖЕНО +$1500"; bombHitTimer = 3.0;
+            updateShopUI();
+            for(let m of missiles) m.active = false; // Destroy in-flight missiles
+            pvoActive = false;
+        }
+    }
+    if (!hit) { bombHitMsg = "ПРОМАХ!"; bombHitTimer = 1.5; }
+}
+
+function update(dt) {
+    if (Math.hypot(posX, posY) < 1500) bombsCount = getMaxAmmo();
+    while (targets.length < 5) {
+        let a = Math.random() * Math.PI * 2, r = 2000 + Math.random() * 8000;
+        targets.push({ x: Math.cos(a)*r, y: Math.sin(a)*r, active: true });
+    }
+    targets = targets.filter(t => t.active);
+    pvoLaunchers = pvoLaunchers.filter(l => l.active);
+
+    let p1Pitch = 0, p1Roll = 0, p2Pitch = 0, p2Roll = 0;
+    if (keys['KeyW']) p1Pitch -= 1; if (keys['KeyS']) p1Pitch += 1;
+    if (keys['KeyA']) p1Roll -= 1; if (keys['KeyD']) p1Roll += 1;
+    if (keys['ArrowUp']) p2Pitch -= 1; if (keys['ArrowDown']) p2Pitch += 1;
+    if (keys['ArrowLeft']) p2Roll -= 1; if (keys['ArrowRight']) p2Roll += 1;
+
+    let pressF = keys['KeyF'] || keys['f'] || keys['а']; // English 'f' and Russian 'а'
+    if (pressF && flareCDTimer <= 0) {
+        flares.push({x: posX, y: posY, z: altitude, life: 4.0}); flareCDTimer = getFlareCD();
+    }
+    flareCDTimer -= dt;
+    for (let f of flares) { f.z -= 80 * dt; f.life -= dt; }
+    flares = flares.filter(f => f.life > 0);
+
+    let pressSpace = keys['Space'] || keys[' '];
+    if (pressSpace && bombsCount > 0 && !bomb) {
+        bombsCount--;
+        bomb = {
+            x: posX, y: posY, z: altitude,
+            pitch: pitch, yaw: yaw, roll: 0, targetPitch: pitch, targetRoll: 0,
+            vx: velocity * Math.cos(pitch) * Math.sin(yaw),
+            vy: velocity * Math.cos(pitch) * Math.cos(yaw),
+            vz: velocity * Math.sin(pitch) - 20
+        };
+    }
+
+    let planePitchIn = 0, planeRollIn = 0;
+    if (bomb) {
+        planePitchIn = p1Pitch; planeRollIn = p1Roll;
+        bomb.targetRoll += p2Roll * dt * 2.0; bomb.targetRoll *= 0.95;
+        bomb.targetPitch += p2Pitch * dt * 1.5; bomb.targetPitch -= 0.5 * dt;
+        bomb.roll += (bomb.targetRoll - bomb.roll) * dt * 4.0;
+        bomb.pitch += (bomb.targetPitch - bomb.pitch) * dt * 4.0;
+        bomb.yaw += Math.sin(bomb.roll) * dt;
+
+        if (!bomb.speed) bomb.speed = Math.max(velocity, 150);
+        bomb.speed += 80 * dt; // Увеличение скорости при падении
+        let bvx = bomb.speed * Math.cos(bomb.pitch) * Math.sin(bomb.yaw);
+        let bvy = bomb.speed * Math.cos(bomb.pitch) * Math.cos(bomb.yaw);
+        let bvz = bomb.speed * Math.sin(bomb.pitch) - 50; 
+        
+        bomb.x += bvx * dt; bomb.y += bvy * dt; bomb.z += bvz * dt;
+        if (bomb.z <= 0) { checkBombHit(bomb.x, bomb.y); bomb = null; }
+    } else {
+        planePitchIn = Math.max(-1, Math.min(1, p1Pitch + p2Pitch));
+        planeRollIn = Math.max(-1, Math.min(1, p1Roll + p2Roll));
+        
+        if (isLanded && velocity < stallSpeed) {
+            planePitchIn = 0;
+        }
+    }
+
+    if (velocity > getMaxSpeed() + 100) {
+        overspeedTimer += dt;
+        if (overspeedTimer > 90 && !engineFailed) {
+            engineFailed = true;
+            crashMsg = "ОТКАЗ ДВИГАТЕЛЯ!"; crashTimer = 4.0;
+        }
+    } else {
+        overspeedTimer = 0;
+    }
+
+    if (engineFailed) throttle = 0;
+
+    let engineThrust = getMaxSpeed() * throttle;
+    
+    // Вектор направления носа
+    let fX = Math.cos(pitch) * Math.sin(yaw);
+    let fY = Math.cos(pitch) * Math.cos(yaw);
+    let fZ = Math.sin(pitch);
+    
+    // Истинная воздушная скорость (направленная вдоль носа)
+    let forwardSpeed = Math.max(0, vx * fX + vy * fY + vz * fZ);
+    if (isLanded) forwardSpeed = velocity; // Для земли
+    
+    // Подъемная сила зависит от скорости набегающего потока (спереди) и крена
+    let baseLift = isLanded ? 1.0 : Math.min(1.0, (forwardSpeed * forwardSpeed) / (stallSpeed * stallSpeed));
+    let effectiveLift = isLanded ? 1.0 : baseLift * Math.max(0, Math.cos(roll));
+
+    if (!isLanded && forwardSpeed < stallSpeed) {
+        targetPitch -= 1.0 * dt; // Сваливание: нос опускается
+        targetRoll += (Math.random() - 0.5) * 1.5 * dt;
+    }
+
+    targetRoll += planeRollIn * dt * 2.5;
+    if (planeRollIn === 0) {
+        let nearestLevel = Math.round(targetRoll / Math.PI) * Math.PI;
+        targetRoll += (nearestLevel - targetRoll) * dt * 2.0;
+    }
+    
+    targetPitch += planePitchIn * dt * 2.0;
+    if (planePitchIn === 0 && Math.abs(targetPitch % (Math.PI*2)) < 0.2 && forwardSpeed >= stallSpeed) targetPitch *= 0.95;
+
+    roll += (targetRoll - roll) * dt * 6.0;
+    pitch += (targetPitch - pitch) * dt * 6.0;
+    yaw += Math.sin(roll) * dt * 1.5;
+
+    // Обновляем вектор носа после поворота
+    fX = Math.cos(pitch) * Math.sin(yaw);
+    fY = Math.cos(pitch) * Math.cos(yaw);
+    fZ = Math.sin(pitch);
+
+    if (isLanded) {
+        velocity += (engineThrust - velocity) * dt * 1.5;
+        vx = fX * velocity;
+        vy = fY * velocity;
+        vz = fZ * velocity;
+    } else {
+        // 1. Тяга
+        vx += fX * engineThrust * 0.6 * dt;
+        vy += fY * engineThrust * 0.6 * dt;
+        vz += fZ * engineThrust * 0.6 * dt;
+        
+        // 2. Гравитация
+        vz -= 700 * dt;
+        
+        // 3. Подъемная сила (компенсирует гравитацию при горизонтальном полете)
+        vz += 700 * effectiveLift * dt;
+        
+        // 4. Сопротивление воздуха
+        let drag = 0.5;
+        vx -= vx * drag * dt;
+        vy -= vy * drag * dt;
+        vz -= vz * drag * dt;
+        
+        // 5. Аэродинамическое выравнивание вектора скорости по носу
+        let currentSpeed = Math.hypot(vx, vy, vz);
+        let alignFactor = Math.max(0.1, effectiveLift) * 4.0 * dt;
+        vx += (fX * currentSpeed - vx) * alignFactor;
+        vy += (fY * currentSpeed - vy) * alignFactor;
+        vz += (fZ * currentSpeed - vz) * alignFactor;
+        
+        velocity = Math.max(0, vx * fX + vy * fY + vz * fZ);
+    }
+    
+    posX += vx * dt; posY += vy * dt; altitude += vz * dt;
+
+    if (altitude > getMaxAlt()) { targetPitch = Math.max(-0.5, targetPitch); altitude = getMaxAlt(); }
+
+    if (altitude <= 10) {
+        if (!isLanded) {
+            if (Math.abs(pitch) < 0.2 && Math.abs(roll) < 0.2 && vz > -20 && velocity < stallSpeed + 100) {
+                isLanded = true; altitude = 10;
+                targetPitch = 0; pitch = 0; targetRoll = 0; roll = 0;
+                crashMsg = "УСПЕШНАЯ ПОСАДКА!"; crashTimer = 2.0;
+            } else crashPlane("ЖЕСТКОЕ СТОЛКНОВЕНИЕ");
+        } else {
+            altitude = 10;
+            targetPitch = Math.max(0, targetPitch); pitch = Math.max(0, pitch);
+            // Запрет мертвой петли на земле: ограничение тангажа
+            targetPitch = Math.min(0.3, targetPitch); pitch = Math.min(0.3, pitch);
+            // Ограничение крена, чтобы крылья не уходили под землю
+            roll = Math.max(-0.2, Math.min(0.2, roll));
+            targetRoll = Math.max(-0.2, Math.min(0.2, targetRoll));
+            
+            if (velocity > stallSpeed + 20 && pitch > 0.1) {
+                isLanded = false; crashMsg = "ОТРЫВ!"; crashTimer = 2.0;
+            }
+        }
+    }
+
+    pvoTimer -= dt;
+    if (pvoTimer <= 0 && !pvoActive && altitude > 300) {
+        pvoActive = true; let r = Math.random();
+        if (r < 0.3) pvoType = 'patriot'; else if (r < 0.6) pvoType = 'buk'; else pvoType = 'stinger';
+        let count = pvoType === 'patriot' ? 4 : 1;
+        
+        let dist = 2500 + Math.random()*1500;
+        let angle = yaw + (Math.random()-0.5)*Math.PI/2;
+        let pvoX = posX + Math.sin(angle)*dist;
+        let pvoY = posY + Math.cos(angle)*dist;
+
+        pvoLaunchers.push({x: pvoX, y: pvoY, active: true, type: pvoType});
+
+        for(let i=0; i<count; i++) {
+            missiles.push({
+                x: pvoX + (Math.random()-0.5)*50, y: pvoY + (Math.random()-0.5)*50, z: 0,
+                vx: 0, vy: 0, vz: 0, active: true, veered: false, type: pvoType
+            });
+        }
+    }
+
+    for (let m of missiles) {
+        if (!m.active) continue;
+        let t = {x: posX, y: posY, z: altitude}, isFlare = false;
+        if (flares.length > 0) { let f = flares[flares.length-1]; t = {x: f.x, y: f.y, z: f.z}; isFlare = true; }
+
+        let dx = t.x - m.x, dy = t.y - m.y, dz = t.z - m.z;
+        let dist = Math.hypot(dx, dy, dz), speed = pvoType === 'stinger' ? 450 : 650;
+
+        if (dist < 800 && (pvoType === 'buk' || pvoType === 'patriot')) {
+            let maneuvering = Math.abs(roll) > 0.6 || Math.abs(pitch) > 0.4;
+            if (isFlare && maneuvering && !m.veered) {
+                m.veered = true;
+                m.vx = (dx/dist + (Math.random()-0.5)*2) * speed;
+                m.vy = (dy/dist + (Math.random()-0.5)*2) * speed;
+                m.vz = (dz/dist + Math.random()) * speed;
+            }
+        }
+        if (!m.veered) { m.vx = (dx/dist) * speed; m.vy = (dy/dist) * speed; m.vz = (dz/dist) * speed; }
+        m.x += m.vx * dt; m.y += m.vy * dt; m.z += m.vz * dt;
+
+        let planeDist = Math.hypot(posX - m.x, posY - m.y, altitude - m.z);
+        if (planeDist < 80 && !m.veered && !isFlare) { crashPlane("СБИТ ПВО (" + pvoType.toUpperCase() + ")"); m.active = false; } 
+        else if (dist < 80 && isFlare) m.active = false;
+        if (m.z > altitude + 1500 || m.z < -100) m.active = false;
+    }
+    missiles = missiles.filter(m => m.active);
+    if (pvoActive && missiles.length === 0) { pvoActive = false; pvoTimer = 30 + Math.random() * 30; }
+}
+
+function setPixel(r, c, char, fg='#4af626', bg='#050505') {
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+    let idx = r * COLS + c;
+    chars[idx] = char;
+    if (renderMode === 0) {
+        if (bg !== 'transparent') bgs[idx] = '#050505';
+        fgs[idx] = fg === '#050505' ? fg : '#4af626';
+    } else { fgs[idx] = fg; bgs[idx] = bg; }
+}
+
+function putStr(r, c, str, fg='#4af626', bg='#050505') {
+    for(let i=0; i<str.length; i++) setPixel(r, c+i, str[i], fg, bg);
+}
+
+function renderView(camX, camY, camZ, camPitch, camYaw, camRoll, c0, c1, r0, r1) {
+    let viewW = c1 - c0, viewH = r1 - r0;
+    let screenAspect = (viewW * (charW / charH)) / viewH;
+    let skyR_hz = 20, skyG_hz = 40, skyB_hz = 100;
+
+    for (let r = r0; r < r1; r++) {
+        for (let c = c0; c < c1; c++) {
+            let nx = ((c - c0) / (viewW - 1)) * 2 - 1;
+            let ny = -(((r - r0) / (viewH - 1)) * 2 - 1);
+            
+            nx *= Math.tan(Math.PI/5) * screenAspect;
+            ny *= Math.tan(Math.PI/5);
+
+            let rx_ = nx * Math.cos(camRoll) + ny * Math.sin(camRoll);
+            let ry_ = -nx * Math.sin(camRoll) + ny * Math.cos(camRoll);
+            let rz_ = 1.0;
+
+            let px = rx_;
+            let py = ry_ * Math.cos(camPitch) + rz_ * Math.sin(camPitch);
+            let pz = -ry_ * Math.sin(camPitch) + rz_ * Math.cos(camPitch);
+
+            let dx = px * Math.cos(camYaw) + pz * Math.sin(camYaw);
+            let dy = -px * Math.sin(camYaw) + pz * Math.cos(camYaw);
+            let dz = py;
+
+            if (dz < 0) {
+                let t = -camZ / dz;
+                let hitX = camX + t * dx, hitY = camY + t * dy;
+
+                let fogChars = " .:-=+*#%@";
+                let getChar = (val) => fogChars[Math.max(0, Math.min(fogChars.length - 1, Math.floor(val * fogChars.length)))];
+                let intensity = Math.max(0, 1 - (t / fogDistance));
+                let char = ' ', fg = '#4af626', bg = '#050505';
+
+                let isTarget = false;
+                for(let tgt of targets) {
+                    if(tgt.active && Math.abs(hitX - tgt.x) < 250 && Math.abs(hitY - tgt.y) < 250) { isTarget = true; break; }
+                }
+
+                let isPVO = false;
+                for(let l of pvoLaunchers) {
+                    if(l.active && Math.abs(hitX - l.x) < 150 && Math.abs(hitY - l.y) < 150) { isPVO = true; break; }
+                }
+
+                let isRunway = hitX > -60 && hitX < 60 && hitY > -2000 && hitY < 4000;
+                let isStripe = isRunway && Math.abs(hitX) < 5 && (Math.abs(hitY) % 200) < 100;
+
+                if (isTarget) {
+                    if (renderMode === 0 || renderMode === 1) { char = '#'; fg = '#4af626'; bg = '#000000'; }
+                    else { char = ' '; bg = '#000000'; }
+                } else if (isPVO) {
+                    if (renderMode === 0 || renderMode === 1) { char = '#'; fg = '#ff0000'; bg = '#000000'; }
+                    else { char = ' '; bg = '#aa0000'; }
+                } else if (isRunway) {
+                    char = ' '; bg = isStripe ? '#ffffff' : (renderMode===2?'#333333':'#111111');
+                } else if (mapData) {
+                    let texX = Math.floor(hitX / mapScale) % mapW, texY = Math.floor(-hitY / mapScale) % mapH;
+                    if (texX < 0) texX += mapW; if (texY < 0) texY += mapH;
+                    let offset = (texY * mapW + texX) * 4;
+                    let r_col = mapData[offset], g_col = mapData[offset+1], b_col = mapData[offset+2];
+                    
+                    if (renderMode === 0) char = getChar(((r_col+g_col+b_col)/3) / 255 * intensity);
+                    else if (renderMode === 1) {
+                        char = getChar(((r_col+g_col+b_col)/3) / 255 * intensity);
+                        fg = `rgb(${Math.floor(r_col*intensity)}, ${Math.floor(g_col*intensity)}, ${Math.floor(b_col*intensity)})`;
+                    } else if (renderMode === 2) {
+                        bg = `rgb(${Math.floor(r_col * intensity + skyR_hz * (1 - intensity))}, ${Math.floor(g_col * intensity + skyG_hz * (1 - intensity))}, ${Math.floor(b_col * intensity + skyB_hz * (1 - intensity))})`;
+                    }
+                } else {
+                    let gridSize = 250;
+                    let localX = hitX >= 0 ? hitX % gridSize : gridSize + (hitX % gridSize);
+                    let localY = hitY >= 0 ? hitY % gridSize : gridSize + (hitY % gridSize);
+                    let isLine = localX < 6 || localY < 6;
+                    let isBlack = (Math.floor(hitX / gridSize) + Math.floor(hitY / gridSize)) % 2 === 0;
+
+                    if (renderMode === 0) char = isLine ? getChar(intensity * 1.5) : (isBlack ? getChar(intensity * 0.4) : ' ');
+                    else if (renderMode === 1) {
+                        if (isLine) { char = getChar(intensity * 1.5); fg = '#88ff88'; }
+                        else { char = isBlack ? getChar(intensity * 0.4) : getChar(intensity * 0.2); fg = isBlack ? '#114411' : '#227722'; }
+                    } else if (renderMode === 2) {
+                        let base = Math.floor(intensity * 150);
+                        let gr_R = isLine ? 50 : (isBlack ? 10 : 20);
+                        let gr_G = isLine ? base + 80 : (isBlack ? base : base + 30);
+                        let gr_B = isLine ? 50 : (isBlack ? 10 : 20);
+                        bg = `rgb(${Math.floor(gr_R * intensity + skyR_hz * (1 - intensity))}, ${Math.floor(gr_G * intensity + skyG_hz * (1 - intensity))}, ${Math.floor(gr_B * intensity + skyB_hz * (1 - intensity))})`;
+                    }
+                }
+                setPixel(r, c, char, fg, bg);
+            } else {
+                let az = Math.atan2(dy, dx), el = Math.asin(dz / Math.sqrt(dx*dx + dy*dy + dz*dz));
+                let starHash = Math.sin(Math.floor(az * 50) * 123.456 + Math.floor(el * 50) * 789.123);
+                let char = ' ', fg = '#4af626', bg = '#050505';
+
+                if (renderMode === 0) { if (starHash > 0.98) char = '.'; else if (starHash > 0.99) char = '*'; }
+                else if (renderMode === 1) {
+                    if (starHash > 0.98) { char = '.'; fg = '#ffffff'; } else if (starHash > 0.99) { char = '*'; fg = '#aaaaaa'; }
+                    bg = '#00001a';
+                } else if (renderMode === 2) {
+                    bg = `rgb(${Math.max(0, 20 - dz * 20)}, ${Math.max(0, 40 - dz * 40)}, ${Math.max(0, 100 - dz * 100)})`;
+                    if (starHash > 0.99) bg = '#ffffff';
+                }
+                setPixel(r, c, char, fg, bg);
+            }
+        }
+    }
+}
+
+function drawSprite(wx, wy, wz, char, color, camX, camY, camZ, camPitch, camYaw, camRoll, c0, c1, r0, r1) {
+    let dx_w = wx - camX, dy_w = wy - camY, dz_w = wz - camZ;
+    let wx_i = dx_w * Math.cos(-camYaw) - dy_w * Math.sin(-camYaw);
+    let wy_i = dx_w * Math.sin(-camYaw) + dy_w * Math.cos(-camYaw);
+    let wz_i = dz_w;
+
+    let px = wx_i, pz = wy_i, py = wz_i;
+    let rx = px;
+    let ry = py * Math.cos(-camPitch) - pz * Math.sin(-camPitch);
+    let rz = py * Math.sin(-camPitch) + pz * Math.cos(-camPitch);
+
+    let cx = rx * Math.cos(-camRoll) - ry * Math.sin(-camRoll);
+    let cy = rx * Math.sin(-camRoll) + ry * Math.cos(-camRoll);
+    let cz = rz;
+
+    if (cz > 0) {
+        let viewW = c1 - c0, viewH = r1 - r0;
+        let screenAspect = (viewW * (charW / charH)) / viewH;
+        let nx = (cx / cz) / (Math.tan(Math.PI/5) * screenAspect);
+        let ny = (cy / cz) / Math.tan(Math.PI/5);
+        let sc = Math.floor((nx + 1) / 2 * (viewW - 1)) + c0;
+        let sr = Math.floor((1 - ny) / 2 * (viewH - 1)) + r0;
+        if (sc >= c0 && sc < c1 && sr >= r0 && sr < r1) {
+            setPixel(sr, sc, char, color, 'rgba(0,0,0,0.5)');
+        }
+    }
+}
+
+function drawSmallAH(r, c, w, h, p_pitch, p_roll) {
+    // Неподвижный фон (горизонт)
+    for (let i = 0; i < h; i++) {
+        for (let j = 0; j < w; j++) {
+            let y = (h - 1) / 2 - i;
+            let char = ' ', fg = '#0ff', bg = '#111';
+            if (y === 0) char = '-';
+            else if (y > 0) { char = ' '; bg = renderMode===2?'#224':'#111'; }
+            else { char = ':'; bg = renderMode===2?'#421':'#111'; fg='#842'; }
+            setPixel(r+i, c+j, char, fg, bg);
+        }
+    }
+
+    // Подвижный силуэт самолета (российский авиагоризонт)
+    let p = p_pitch % (Math.PI * 2);
+    if (p > Math.PI) p -= Math.PI * 2; if (p < -Math.PI) p += Math.PI * 2;
+    let r_eff = p_roll;
+    if (Math.abs(p) > Math.PI / 2) { p = Math.sign(p) * Math.PI - p; r_eff += Math.PI; }
+
+    let pyOffset = p * 10;
+    for (let x = -2; x <= 2; x++) {
+        let ptC = x === 0 ? 'V' : '-';
+        let rx = x * Math.cos(r_eff);
+        let ry = -x * Math.sin(r_eff) + pyOffset; 
+        
+        let screenX = Math.floor((w-1)/2 + rx + 0.5);
+        let screenY = Math.floor((h-1)/2 - ry + 0.5);
+        if (screenX >= 0 && screenX < w && screenY >= 0 && screenY < h) {
+            setPixel(r + screenY, c + screenX, ptC, '#f00', 'transparent');
+        }
+    }
+}
+
+function drawHelpWindow() {
+    let help = [
+        "УПРАВЛЕНИЕ:",
+        "P1(САМОЛЕТ): WASD",
+        "P2(БОМБА): СТРЕЛКИ",
+        "ГАЗ: 1-9",
+        "СБРОС: ПРОБЕЛ",
+        "ЛОВУШКИ: F",
+        "РЕЖИМ: 0",
+        "НАСТРОЙКИ: TAB"
+    ];
+    let w = 20, h = help.length + 2;
+    for(let r=0; r<h; r++) for(let c=0; c<w; c++) setPixel(r, c, ' ', '#fff', 'rgba(0,0,0,0.5)');
+    for(let i=0; i<help.length; i++) putStr(i+1, 1, help[i], '#0f0', 'transparent');
+}
+
+let lastTime = 0;
+function loop(time) {
+    if(!lastTime) lastTime = time;
+    let dt = (time - lastTime) / 1000;
+    lastTime = time; if (dt > 0.1) dt = 0.1;
+    
+    update(dt);
+    for(let i=0; i<ROWS*COLS; i++) { chars[i] = ' '; fgs[i] = '#4af626'; bgs[i] = '#050505'; }
+
+    let dashY = Math.max(10, ROWS - 8);
+
+    if (bomb) {
+        let mid = Math.floor(COLS/2);
+        renderView(posX, posY, altitude, pitch, yaw, roll, 0, mid, 0, dashY);
+        renderView(bomb.x, bomb.y, bomb.z, bomb.pitch, bomb.yaw, bomb.roll, mid+1, COLS, 0, dashY);
+        for(let r=0; r<dashY; r++) setPixel(r, mid, '|', '#fff', '#000');
+
+        let drawSprites = (cX, cY, cZ, cP, cYaw, cR, c0, c1) => {
+            drawSprite(0, 0, 0, 'H', '#0088ff', cX, cY, cZ, cP, cYaw, cR, c0, c1, 0, dashY);
+            if(c0===0) drawSprite(bomb.x, bomb.y, bomb.z, 'B', '#ffff00', cX, cY, cZ, cP, cYaw, cR, c0, c1, 0, dashY);
+            for(let f of flares) drawSprite(f.x, f.y, f.z, '*', '#ffaa00', cX, cY, cZ, cP, cYaw, cR, c0, c1, 0, dashY);
+            for(let m of missiles) drawSprite(m.x, m.y, m.z, '!', '#ff0000', cX, cY, cZ, cP, cYaw, cR, c0, c1, 0, dashY);
+        };
+        drawSprites(posX, posY, altitude, pitch, yaw, roll, 0, mid);
+        drawSprites(bomb.x, bomb.y, bomb.z, bomb.pitch, bomb.yaw, bomb.roll, mid+1, COLS);
+    } else {
+        renderView(posX, posY, altitude, pitch, yaw, roll, 0, COLS, 0, dashY);
+        let drawSprites = (cX, cY, cZ, cP, cYaw, cR, c0, c1) => {
+            drawSprite(0, 0, 0, 'H', '#0088ff', cX, cY, cZ, cP, cYaw, cR, c0, c1, 0, dashY);
+            for(let f of flares) drawSprite(f.x, f.y, f.z, '*', '#ffaa00', cX, cY, cZ, cP, cYaw, cR, c0, c1, 0, dashY);
+            for(let m of missiles) drawSprite(m.x, m.y, m.z, '!', '#ff0000', cX, cY, cZ, cP, cYaw, cR, c0, c1, 0, dashY);
+        };
+        drawSprites(posX, posY, altitude, pitch, yaw, roll, 0, COLS);
+    }
+
+    drawHelpWindow();
+
+    // Cabin frame
+    let mid = Math.floor(COLS/2);
+    for(let r=0; r<2; r++) {
+        for(let c=0; c<COLS; c++) setPixel(r, c, ' ', '#000', '#111');
+    }
+    for(let r=2; r<dashY; r++) {
+        setPixel(r, mid-1, ' ', '#000', '#111');
+        setPixel(r, mid, '|', '#333', '#111');
+        setPixel(r, mid+1, ' ', '#000', '#111');
+    }
+
+    // Dashboard
+    for(let r=dashY; r<ROWS; r++) for(let c=0; c<COLS; c++) setPixel(r, c, ' ', '#fff', '#111');
+    for(let c=0; c<COLS; c++) setPixel(dashY, c, '=', '#555', '#111');
+    for(let r=dashY+1; r<ROWS; r++) { setPixel(r, 22, '|', '#555', '#111'); setPixel(r, 44, '|', '#555', '#111'); setPixel(r, 72, '|', '#555', '#111'); }
+
+    putStr(dashY+1, 6, " [ РАДАР ] ", '#0f0', '#111');
+    for (let r=0; r<5; r++) putStr(dashY+2+r, 2, " . . . . . . . . . ", '#333', '#111');
+    setPixel(dashY+4, 11, '+', '#0f0', '#111'); 
+    
+    let drawRadarIcon = (obj, char, color) => {
+        let dx = obj.x - posX, dy = obj.y - posY;
+        let rx = dx * Math.cos(-yaw) - dy * Math.sin(-yaw);
+        let ry = dx * Math.sin(-yaw) + dy * Math.cos(-yaw);
+        let rc = Math.floor(rx / 1000), rr = Math.floor(-ry / 1000);
+        if (Math.abs(rc) <= 8 && Math.abs(rr) <= 2) setPixel(dashY+4+rr, 11+rc, char, color, '#111');
+    };
+    for(let t of targets) if(t.active) drawRadarIcon(t, 'T', '#f0f');
+    for(let l of pvoLaunchers) if(l.active) drawRadarIcon(l, 'S', '#f00');
+    drawRadarIcon({x:0, y:0}, 'H', '#00f');
+    if (bomb) drawRadarIcon(bomb, 'B', '#ff0');
+    for(let m of missiles) drawRadarIcon(m, '!', '#f00');
+
+    putStr(dashY+1, 28, " [ АГ ] ", '#0ff', '#111');
+    drawSmallAH(dashY+2, 24, 18, 5, pitch, roll);
+
+    putStr(dashY+1, 46, ` ТЯГА: ${Math.floor(throttle*100)}% `.padEnd(25), '#fff', '#111');
+    let nearestT = null, minDist = Infinity;
+    for (let t of targets) {
+        if(!t.active) continue;
+        let d = Math.hypot(t.x-posX, t.y-posY);
+        if (d < minDist) { minDist = d; nearestT = t; }
+    }
+    putStr(dashY+2, 46, ` ЦЕЛЬ: ${minDist===Infinity?'НЕТ':Math.floor(minDist)+'м'} `.padEnd(25), '#fff', '#111');
+    
+    if (bombHitTimer > 0) {
+        bombHitTimer -= dt;
+        putStr(dashY+3, 46, ` ${bombHitMsg} `.padEnd(25), bombHitMsg.includes("ПРОМАХ") ? '#f00' : '#0f0', '#111');
+    } else if (bomb) {
+        putStr(dashY+3, 46, ` БОМБА Z: ${Math.floor(bomb.z)}м `.padEnd(25), '#ff0', '#111');
+    } else {
+        putStr(dashY+3, 46, ` БАЗА: ${Math.floor(Math.hypot(posX, posY))}м `.padEnd(25), '#08f', '#111');
+    }
+
+    if (crashTimer > 0) {
+        crashTimer -= dt;
+        putStr(dashY+5, 46, ` ${crashMsg} `.padEnd(25), '#f00', '#111');
+    } else if (pvoActive) {
+        putStr(dashY+5, 46, ` ПВО: ${pvoType.toUpperCase()} `.padEnd(25), '#f00', '#111');
+    } else {
+        putStr(dashY+5, 46, ` ПВО: ЧИСТО `.padEnd(25), '#0f0', '#111');
+    }
+
+    // Stricter right panel
+    putStr(dashY+1, 74, `[СИСТЕМЫ ВООРУЖЕНИЯ]`, '#888', '#111');
+    putStr(dashY+2, 74, ` АБСП: ${bombsCount}/${getMaxAmmo()}`.padEnd(20), '#fff', '#111');
+    putStr(dashY+3, 74, ` ЛТЦ : ${flareCDTimer<=0?'ГОТОВ':flareCDTimer.toFixed(1)}`.padEnd(20), '#fff', '#111');
+    putStr(dashY+4, 74, ` СЧЕТ: $${money}`.padEnd(20), '#fff', '#111');
+    putStr(dashY+5, 74, ` V:${Math.floor(velocity)} H:${Math.floor(altitude)}`.padEnd(20), '#fff', '#111');
+
+    // RI messages (Rita)
+    let riMessages = [];
+    if (!isLanded && altitude < 200 && vz < -20) riMessages.push("ОПАСНАЯ ВЫСОТА");
+    if (velocity > getMaxSpeed() + 100) riMessages.push("ПРЕДЕЛЬНАЯ СКОРОСТЬ");
+    if (engineFailed) riMessages.push("ОТКАЗ ДВИГАТЕЛЯ");
+    else if (!isLanded && velocity < stallSpeed + 15) riMessages.push("СВАЛИВАНИЕ");
+    if (missiles.length > 0) riMessages.push("РАКЕТНАЯ АТАКА");
+
+    if (riMessages.length > 0 && Math.floor(Date.now() / 250) % 2 === 0) {
+        let riText = " РИ: " + riMessages.join(" | ") + " ";
+        putStr(dashY - 2, Math.max(0, Math.floor(COLS/2 - riText.length/2)), riText, '#f00', '#111');
+    }
+
+    if (renderMode === 0) canvas.style.filter = 'drop-shadow(0 0 3px #4af626)';
+    else if (renderMode === 1) canvas.style.filter = 'drop-shadow(0 0 2px rgba(255,255,255,0.3))';
+    else canvas.style.filter = 'none';
+
+    ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            let idx = r * COLS + c;
+            let char = chars[idx], fg = fgs[idx], bg = bgs[idx];
+            let x = c * charW, y = r * charH;
+            if (bg !== '#050505' && bg !== 'transparent') {
+                ctx.fillStyle = bg; ctx.fillRect(Math.floor(x), Math.floor(y), Math.ceil(charW)+1, Math.ceil(charH)+1);
+            }
+            if (char !== ' ') { ctx.fillStyle = fg; ctx.fillText(char, x, y); }
+        }
+    }
+    requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

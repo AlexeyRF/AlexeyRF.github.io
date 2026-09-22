@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Долг Google в России</title>
+    <meta name="description" content="Счетчик гигантского штрафа Google в России в реальном времени.">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background">
+        <div class="glow-orb"></div>
+        <div class="glow-orb red"></div>
+    </div>
+    
+    <main class="container">
+        <header>
+            <h1>Штраф Google в России</h1>
+            <p>Сумма удваивается каждую неделю из-за невыполнения требований по восстановлению YouTube-каналов.</p>
+        </header>
+
+        <section class="counter-card glass">
+            <h2 class="currency">₽</h2>
+            <div id="debt-counter" class="debt-value">0</div>
+            <div id="debt-words" class="debt-words"></div>
+        </section>
+
+        <section class="stats-grid">
+
+            <div class="stat-card glass">
+                <div class="stat-icon">📈</div>
+                <div class="stat-info">
+                    <h3>Прирост в секунду</h3>
+                    <p id="growth-rate">Вычисление...</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

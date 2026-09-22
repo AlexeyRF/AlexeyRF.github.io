@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Art Generator — Создание арт-рисунков из фото</title>
+    <meta name="description" content="Преобразуйте свои фотографии в потрясающий ASCII-арт в реальном времени с тонкими настройками, поддержкой цветов и экспортом в текст, HTML или картинку.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Controls -->
+        <aside class="sidebar">
+
+            <!-- Upload Area -->
+            <section class="control-group">
+                <h2>1. Изображение</h2>
+                <div class="upload-area" id="drop-zone">
+                    <input type="file" id="file-input" accept="image/*" class="file-input">
+                    <div class="upload-prompt">
+                        <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p class="primary-text">Перетащите фото сюда</p>
+                        <p class="secondary-text">или нажмите для выбора</p>
+                    </div>
+                    <img id="source-preview" class="source-preview hidden" alt="Preview">
+                    <button id="change-image-btn" class="btn btn-secondary btn-sm hidden">Выбрать другое</button>
+                </div>
+            </section>
+
+            <!-- Character Settings -->
+            <section class="control-group">
+                <h2>2. Символы</h2>
+                <div class="control-item">
+                    <label for="char-preset">Набор символов:</label>
+                    <select id="char-preset">
+                        <option value="standard">Стандартный (@%#*+=-:. )</option>
+                        <option value="dense">Плотный (█▓▒░ )</option>
+                        <option value="blocks">Блоки (█■▪ )</option>
+                        <option value="binary">Бинарный (01)</option>
+                        <option value="minimal" selected>Минималистичный (#+-. )</option>
+                        <option value="custom">Пользовательский...</option>
+                    </select>
+                </div>
+                <div class="control-item hidden" id="custom-chars-container">
+                    <label for="custom-chars">Свой набор символов (от темного к светлому):</label>
+                    <input type="text" id="custom-chars" value="@%#*+=-:. " placeholder="Символы без пробелов">
+                </div>
+                <div class="control-item checkbox-item">
+                    <input type="checkbox" id="invert-chars">
+                    <label for="invert-chars">Инвертировать темное/светлое</label>
+                </div>
+            </section>
+
+            <!-- Quality and Sizing -->
+            <section class="control-group">
+                <h2>3. Размер и Качество</h2>
+                <div class="control-item">
+                    <div class="slider-header">
+                        <label for="art-width">Ширина (символы):</label>
+                        <span class="slider-val" id="width-val">100</span>
+                    </div>
+                    <input type="range" id="art-width" min="20" max="300" value="100" step="5">
+                </div>
+                <div class="control-item">
+                    <div class="slider-header">
+                        <label for="char-aspect">Пропорции (высота/ширина символа):</label>
+                        <span class="slider-val" id="aspect-val">0.55</span>
+                    </div>
+                    <input type="range" id="char-aspect" min="0.3" max="1.0" value="0.55" step="0.05">
+                    <span class="help-text">Компенсирует растянутость шрифта по вертикали.</span>
+                </div>
+            </section>
+
+            <!-- Image adjustments -->
+            <section class="control-group">
+                <h2>4. Коррекция изображения</h2>
+                <div class="control-item">
+                    <div class="slider-header">
+                        <label for="contrast">Контрастность:</label>
+                        <span class="slider-val" id="contrast-val">0</span>
+                    </div>
+                    <input type="range" id="contrast" min="-100" max="100" value="0">
+                </div>
+                <div class="control-item">
+                    <div class="slider-header">
+                        <label for="brightness">Яркость:</label>
+                        <span class="slider-val" id="brightness-val">0</span>
+                    </div>
+                    <input type="range" id="brightness" min="-100" max="100" value="0">
+                </div>
+            </section>
+
+            <!-- Styling and Colors -->
+            <section class="control-group">
+                <h2>5. Визуализация</h2>
+                <div class="control-item">
+                    <label for="color-mode">Режим цвета:</label>
+                    <select id="color-mode">
+                        <option value="mono" selected>Черно-белый (обычный текст)</option>
+                        <option value="color-html">Цветной HTML (полноцветный)</option>
+                        <option value="color-terminal">Цветной терминал (ANSI-эмуляция)</option>
+                    </select>
+                </div>
+                <div class="control-item" id="font-size-container">
+                    <div class="slider-header">
+                        <label for="font-size">Размер шрифта (px):</label>
+                        <span class="slider-val" id="font-size-val">10</span>
+                    </div>
+                    <input type="range" id="font-size" min="4" max="24" value="10">
+                </div>
+                <div class="control-item">
+                    <div class="slider-header">
+                        <label for="line-height">Межстрочный интервал:</label>
+                        <span class="slider-val" id="line-height-val">0.9</span>
+                    </div>
+                    <input type="range" id="line-height" min="0.5" max="1.5" value="0.9" step="0.05">
+                </div>
+                <div class="control-item row-inputs">
+                    <div class="sub-item">
+                        <label for="bg-color">Цвет фона:</label>
+                        <input type="color" id="bg-color" value="#000000">
+                    </div>
+                    <div class="sub-item" id="text-color-container">
+                        <label for="text-color">Цвет текста:</label>
+                        <input type="color" id="text-color" value="#ffffff">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Export controls -->
+            <section class="control-group export-group">
+                <h2>6. Экспорт</h2>
+                <div class="export-buttons">
+                    <button id="copy-btn" class="btn btn-primary">
+                        <span class="btn-icon">📋</span> Копировать текст
+                    </button>
+                    <button id="download-txt-btn" class="btn btn-secondary">
+                        <span class="btn-icon">📥</span> Скачать .TXT
+                    </button>
+                    <button id="download-html-btn" class="btn btn-secondary hidden">
+                        <span class="btn-icon">🌐</span> Скачать .HTML
+                    </button>
+                    <button id="download-img-btn" class="btn btn-accent">
+                        <span class="btn-icon">🖼️</span> Сохранить как PNG
+                    </button>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="workspace">
+            <header class="workspace-header">
+                <div class="status-info">
+                    <span id="art-info">Загрузите изображение для начала работы</span>
+                </div>
+                <div class="view-controls">
+                    <button id="fit-screen-btn" class="btn-icon-only active" title="Вписать в экран">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                    </button>
+                    <button id="wrap-text-btn" class="btn-icon-only" title="Перенос строк">
+                        <span style="font-family: monospace; font-size: 14px; font-weight: bold;">↵</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="art-viewer" id="art-viewer">
+                <div class="zoom-container" id="zoom-container">
+                    <!-- The generated ascii code container -->
+                    <pre id="ascii-output" class="ascii-output monospace fit-screen">Здесь появится ваш ASCII арт...</pre>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Canvas for Image Processing (Hidden) -->
+    <canvas id="process-canvas" class="hidden"></canvas>
+    <!-- Canvas for Image Export (Hidden) -->
+    <canvas id="export-canvas" class="hidden"></canvas>
+
+    <script src="app.js"></script>
+</body>
+</html>

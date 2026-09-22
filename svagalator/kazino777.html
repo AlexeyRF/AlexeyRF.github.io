@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Казино</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 2px solid #ff9f43;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #ff9f43;
+            text-shadow: 0 0 10px rgba(255, 159, 67, 0.5);
+        }
+        
+        .balance-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 15px;
+            border: 1px solid #ff9f43;
+        }
+        
+        .balance {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #ffdd59;
+            text-shadow: 0 0 8px rgba(255, 221, 89, 0.5);
+        }
+        
+        .slot-machine {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid #ff9f43;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .slot {
+            width: 30%;
+            height: 150px;
+            background: #1a1a2e;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 6rem;
+            border: 3px solid #4a4a8a;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.7);
+        }
+        
+        .slot::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1), transparent);
+            pointer-events: none;
+        }
+        
+        .lever-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 20%;
+        }
+        
+        .lever {
+            width: 60px;
+            height: 150px;
+            background: linear-gradient(to right, #8B0000, #B22222, #8B0000);
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #ffdd59;
+            font-size: 1.2rem;
+        }
+        
+        .lever:hover {
+            transform: scale(1.05);
+        }
+        
+        .lever.pulled {
+            transform: rotate(-30deg);
+            transform-origin: top center;
+        }
+        
+        .lever-handle {
+            width: 40px;
+            height: 40px;
+            background: #ff9f43;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 10px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+        
+        button {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .spin-btn {
+            background: linear-gradient(to right, #ff3838, #ff9f43);
+            color: white;
+            flex: 1;
+        }
+        
+        .spin-btn:hover:not(:disabled) {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(255, 56, 56, 0.4);
+        }
+        
+        .spin-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .rules-btn {
+            background: linear-gradient(to right, #0984e3, #74b9ff);
+            color: white;
+        }
+        
+        .rules-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(9, 132, 227, 0.4);
+        }
+        
+        .rules {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            border: 1px solid #0984e3;
+            display: none;
+        }
+        
+        .rules.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        .rules h3 {
+            color: #74b9ff;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .rules ul {
+            list-style-type: none;
+            padding-left: 10px;
+        }
+        
+        .rules li {
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .rules li i {
+            margin-right: 10px;
+            color: #55efc4;
+        }
+        
+        .result {
+            text-align: center;
+            font-size: 1.8rem;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid transparent;
+            transition: all 0.5s;
+        }
+        
+        .result.win {
+            color: #00b894;
+            border-color: #00b894;
+            background: rgba(0, 184, 148, 0.1);
+            text-shadow: 0 0 10px rgba(0, 184, 148, 0.5);
+        }
+        
+        .result.loss {
+            color: #ff3838;
+            border-color: #ff3838;
+            background: rgba(255, 56, 56, 0.1);
+            text-shadow: 0 0 10px rgba(255, 56, 56, 0.5);
+        }
+        
+        .result.neutral {
+            color: #ffdd59;
+            border-color: #ffdd59;
+            background: rgba(255, 221, 89, 0.1);
+        }
+        
+        .result.educational {
+            color: #0984e3;
+            border-color: #0984e3;
+            background: rgba(9, 132, 227, 0.1);
+        }
+        
+        .math-challenge {
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 20px;
+            border: 2px solid #00b894;
+            text-align: center;
+        }
+        
+        .math-challenge.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        .math-challenge h3 {
+            color: #00b894;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+        
+        .math-problem {
+            font-size: 2.5rem;
+            margin: 20px 0;
+            color: #ffdd59;
+        }
+        
+        .math-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.5rem;
+            text-align: center;
+            border-radius: 10px;
+            border: 2px solid #0984e3;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .math-submit {
+            background: linear-gradient(to right, #00b894, #55efc4);
+            color: white;
+            width: 100%;
+            padding: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .warning-message {
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 20px;
+            border: 2px solid #ff3838;
+            text-align: center;
+        }
+        
+        .warning-message.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+        
+        .warning-message h3 {
+            color: #ff3838;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+        
+        .warning-content {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        .warning-content ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin-top: 15px;
+        }
+        
+        .warning-content li {
+            margin-bottom: 10px;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .warning-content li:before {
+            content: "⚠️";
+            position: absolute;
+            left: 0;
+        }
+        
+        .continue-btn {
+            background: linear-gradient(to right, #0984e3, #74b9ff);
+            color: white;
+            width: 100%;
+            padding: 15px;
+            font-size: 1.3rem;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes spin {
+            0% { transform: translateY(-100px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        
+        @keyframes win {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 10px #ff9f43; }
+            50% { box-shadow: 0 0 25px #ff9f43; }
+        }
+        
+        .winning-slot {
+            animation: win 0.5s ease-in-out 3, glow 1.5s infinite;
+        }
+        
+        .spinning {
+            animation: spin 0.15s linear infinite;
+        }
+        
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+        
+        .slot-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3rem;
+            color: #ffdd59;
+            z-index: 10;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .slot {
+                height: 120px;
+                font-size: 4.5rem;
+            }
+            
+            .lever {
+                height: 120px;
+                width: 50px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .balance {
+                font-size: 2rem;
+            }
+            
+            .math-problem {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎰 Казино</h1>
+        
+        <div class="balance-container">
+            <div class="balance" id="balance">100</div>
+        </div>
+        
+        <div class="slot-machine">
+            <div class="slot" id="slot1">
+                <div class="slot-overlay" id="overlay1"></div>
+                🍒
+            </div>
+            <div class="slot" id="slot2">
+                <div class="slot-overlay" id="overlay2"></div>
+                🍒
+            </div>
+            <div class="slot" id="slot3">
+                <div class="slot-overlay" id="overlay3"></div>
+                🍒
+            </div>
+            
+            <div class="lever-container">
+                <div class="lever" id="lever">
+                    <div class="lever-handle"></div>
+                    <span>PULL</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="result" id="result">
+            Начните
+        </div>
+        
+        <div class="controls">
+            <button class="spin-btn" id="spinBtn">
+                🎮 SPIN
+            </button>
+            <button class="rules-btn" id="rulesBtn">
+                ❓ Правила
+            </button>
+        </div>
+        
+        <div class="math-challenge" id="mathChallenge">
+            <h3>📚 Математическая задача</h3>
+            <p>Ваш баланс достиг нуля! Решите пример, чтобы получить 10 единиц и продолжить игру.</p>
+            <div class="math-problem" id="mathProblem">5 + 3 = ?</div>
+            <input type="number" class="math-input" id="mathInput" placeholder="Введите ответ">
+            <button class="math-submit" id="mathSubmit">✅ Проверить ответ</button>
+        </div>
+        
+        <div class="warning-message" id="warningMessage">
+            <h3>⚠️ Внимание!</h3>
+            <div class="warning-content">
+                <p>Вы достигли 2000 единиц! Прежде чем продолжить, пожалуйста, прочитайте эту важную информацию:</p>
+                <ul>
+                    <li>Азартные игры вызывают сильную психологическую зависимость</li>
+                    <li>12% всего взрослого населения России являются лудоманами</li>
+                    <li>97% игроков в итоге теряют деньги</li>
+                    <li>Игровая зависимость разрушает семьи и карьеры</li>
+                    <li>Казино всегда имеют математическое преимущество</li>
+                    <li>Не существует "верных систем" для выигрыша</li>
+                </ul>
+                <p>Эта игра создана только для развлечения. В реальной жизни казино приводит к серьёзным проблемам.</p>
+            </div>
+            <button class="continue-btn" id="continueBtn">Понятно, продолжить</button>
+        </div>
+        
+        <div class="rules" id="rules">
+            <h3>📋 Правила игры</h3>
+            <ul>
+                <li>🆓 Спины абсолютно бесплатные!</li>
+                <li>🔴 <span style="color:#ff3838;">Все разные</span> → баланс :2</li>
+                <li>🟡 <span style="color:#ffdd59;">Два одинаковых</span> → баланс не меняется</li>
+                <li>🟢 <span style="color:#00b894;">Три одинаковые</span> → баланс x2</li>
+            </ul>
+        </div>
+       
+    </div>
+
+    <script>
+        const emojis = ["🍒", "🍋", "⭐", "🔔", "7️⃣"];
+        let balance = 100;
+        let isSpinning = false;
+        let mathAnswer = 0;
+        const balanceElement = document.getElementById('balance');
+        const slot1 = document.getElementById('slot1');
+        const slot2 = document.getElementById('slot2');
+        const slot3 = document.getElementById('slot3');
+        const resultElement = document.getElementById('result');
+        const spinBtn = document.getElementById('spinBtn');
+        const lever = document.getElementById('lever');
+        const rulesBtn = document.getElementById('rulesBtn');
+        const rules = document.getElementById('rules');
+        const overlay1 = document.getElementById('overlay1');
+        const overlay2 = document.getElementById('overlay2');
+        const overlay3 = document.getElementById('overlay3');
+        const mathChallenge = document.getElementById('mathChallenge');
+        const mathProblem = document.getElementById('mathProblem');
+        const mathInput = document.getElementById('mathInput');
+        const mathSubmit = document.getElementById('mathSubmit');
+        const warningMessage = document.getElementById('warningMessage');
+        const continueBtn = document.getElementById('continueBtn');
+        function generateMathProblem() {
+            const operations = ['+', '-', '*'];
+            const operation = operations[Math.floor(Math.random() * operations.length)];
+            
+            let num1, num2;
+            
+            switch(operation) {
+                case '+':
+                    num1 = Math.floor(Math.random() * 50) + 1;
+                    num2 = Math.floor(Math.random() * 50) + 1;
+                    mathAnswer = num1 + num2;
+                    break;
+                case '-':
+                    num1 = Math.floor(Math.random() * 100) + 1;
+                    num2 = Math.floor(Math.random() * num1) + 1;
+                    mathAnswer = num1 - num2;
+                    break;
+                case '*':
+                    num1 = Math.floor(Math.random() * 12) + 1;
+                    num2 = Math.floor(Math.random() * 12) + 1;
+                    mathAnswer = num1 * num2;
+                    break;
+            }
+            
+            mathProblem.textContent = `${num1} ${operation} ${num2} = ?`;
+            mathInput.value = '';
+            mathInput.focus();
+        }
+        
+        function loadGameData() {
+            const savedBalance = localStorage.getItem('educationalEmojiSlotBalance');
+            if (savedBalance) balance = parseInt(savedBalance);
+            updateUI();
+            
+            checkSpecialConditions();
+        }
+        
+        function saveGameData() {
+            localStorage.setItem('educationalEmojiSlotBalance', balance);
+        }
+        
+        function updateUI() {
+            balanceElement.textContent = balance;
+            spinBtn.disabled = isSpinning || balance === 0;
+            
+            if (isSpinning) {
+                spinBtn.innerHTML = '🌀 ВРАЩАЕТСЯ...';
+            } else if (balance === 0) {
+                spinBtn.innerHTML = '📚 РЕШИТЕ ЗАДАЧУ';
+            } else {
+                spinBtn.innerHTML = '🎮 SPIN';
+            }
+        }
+        
+        function checkSpecialConditions() {
+            if (balance === 0) {
+                generateMathProblem();
+                mathChallenge.classList.add('active');
+                resultElement.textContent = "Баланс равен 0! Решите математический пример, чтобы получить 10 единиц.";
+                resultElement.className = "result educational";
+            } else if (balance >= 2000) {
+                warningMessage.classList.add('active');
+                resultElement.textContent = "Вы достигли 2000 единиц! Прочитайте важное сообщение.";
+                resultElement.className = "result educational";
+            }
+        }
+        
+        function spin() {
+            if (isSpinning || balance === 0) return;
+            
+            isSpinning = true;
+            updateUI();
+            
+            lever.classList.add('pulled');
+            
+            slot1.classList.add('spinning');
+            slot2.classList.add('spinning');
+            slot3.classList.add('spinning');
+            
+            resultElement.className = 'result';
+            resultElement.textContent = 'Вращение...';
+            
+            let emoji1, emoji2, emoji3;
+            const random = Math.random();
+            
+            if (random < 0.25) {
+                const shuffled = [...emojis].sort(() => 0.5 - Math.random());
+                emoji1 = shuffled[0];
+                emoji2 = shuffled[1];
+                emoji3 = shuffled[2];
+            } else if (random < 0.5) {
+                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+                emoji1 = randomEmoji;
+                emoji2 = randomEmoji;
+                emoji3 = randomEmoji;
+            } else {
+                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+                const anotherEmoji = emojis.filter(e => e !== randomEmoji)[Math.floor(Math.random() * (emojis.length - 1))];
+                
+                const differentSlot = Math.floor(Math.random() * 3);
+                
+                if (differentSlot === 0) {
+                    emoji1 = anotherEmoji;
+                    emoji2 = randomEmoji;
+                    emoji3 = randomEmoji;
+                } else if (differentSlot === 1) {
+                    emoji1 = randomEmoji;
+                    emoji2 = anotherEmoji;
+                    emoji3 = randomEmoji;
+                } else {
+                    emoji1 = randomEmoji;
+                    emoji2 = randomEmoji;
+                    emoji3 = anotherEmoji;
+                }
+            }
+            
+            setTimeout(() => {
+                slot1.classList.remove('spinning');
+                slot1.textContent = emoji1;
+                slot1.appendChild(overlay1);
+                
+                overlay1.style.display = 'flex';
+                overlay1.textContent = emoji1;
+                
+                setTimeout(() => {
+                    overlay1.style.display = 'none';
+                    
+                    setTimeout(() => {
+                        slot2.classList.remove('spinning');
+                        slot2.textContent = emoji2;
+                        slot2.appendChild(overlay2);
+                        
+                        overlay2.style.display = 'flex';
+                        overlay2.textContent = emoji2;
+                        
+                        setTimeout(() => {
+                            overlay2.style.display = 'none';
+                            
+                            setTimeout(() => {
+                                slot3.classList.remove('spinning');
+                                slot3.textContent = emoji3;
+                                slot3.appendChild(overlay3);
+                                
+                                overlay3.style.display = 'flex';
+                                overlay3.textContent = emoji3;
+                                
+                                setTimeout(() => {
+                                    overlay3.style.display = 'none';
+                                    
+                                    lever.classList.remove('pulled');
+                                    
+                                    determineResult(emoji1, emoji2, emoji3);
+                                }, 300);
+                            }, 200);
+                        }, 300);
+                    }, 200);
+                }, 300);
+            }, 1000);
+        }
+        
+        function determineResult(e1, e2, e3) {
+            let resultText = '';
+            let resultType = '';
+            let oldBalance = balance;
+            
+            if (e1 === e2 && e2 === e3) {
+                balance = Math.floor(balance * 2);
+                resultText = `Все три ${e1}! Баланс удвоен: ${oldBalance} → ${balance}`;
+                resultType = 'win';
+                
+                slot1.classList.add('winning-slot');
+                slot2.classList.add('winning-slot');
+                slot3.classList.add('winning-slot');
+                
+                setTimeout(() => {
+                    slot1.classList.remove('winning-slot');
+                    slot2.classList.remove('winning-slot');
+                    slot3.classList.remove('winning-slot');
+                }, 1500);
+                
+            } else if (e1 === e2 || e2 === e3 || e1 === e3) {
+                resultText = `Баланс не изменился: ${balance}`;
+                resultType = 'neutral';
+            } else {
+                balance = Math.floor(balance / 2);
+                resultText = `Баланс разделён пополам: ${oldBalance} → ${balance}`;
+                resultType = 'loss';
+            }
+            
+            resultElement.textContent = resultText;
+            resultElement.className = `result ${resultType}`;
+            
+            isSpinning = false;
+            updateUI();
+            saveGameData();
+            
+            checkSpecialConditions();
+        }
+        
+        function initGame() {
+            loadGameData();
+            
+            spinBtn.addEventListener('click', spin);
+            
+            lever.addEventListener('mousedown', () => {
+                if (!isSpinning && balance > 0) {
+                    lever.classList.add('pulled');
+                }
+            });
+            
+            lever.addEventListener('mouseup', () => {
+                if (!isSpinning && balance > 0) {
+                    spin();
+                } else {
+                    lever.classList.remove('pulled');
+                }
+            });
+            
+            lever.addEventListener('mouseleave', () => {
+                lever.classList.remove('pulled');
+            });
+            
+            lever.addEventListener('click', () => {
+                if (!isSpinning && balance > 0) {
+                    spin();
+                }
+            });
+            
+            rulesBtn.addEventListener('click', () => {
+                rules.classList.toggle('active');
+                if (rules.classList.contains('active')) {
+                    rulesBtn.innerHTML = '❌ Скрыть';
+                } else {
+                    rulesBtn.innerHTML = '❓ Правила';
+                }
+            });
+            
+            mathSubmit.addEventListener('click', () => {
+                const userAnswer = parseInt(mathInput.value);
+                
+                if (isNaN(userAnswer)) {
+                    mathInput.style.borderColor = '#ff3838';
+                    mathInput.placeholder = 'Введите число!';
+                    return;
+                }
+                
+                if (userAnswer === mathAnswer) {
+                    balance += 10;
+                    mathChallenge.classList.remove('active');
+                    resultElement.textContent = `Правильно! Вы получили 10 единиц. Новый баланс: ${balance}`;
+                    resultElement.className = "result win";
+                    updateUI();
+                    saveGameData();
+                } else {
+                    mathInput.style.borderColor = '#ff3838';
+                    mathInput.value = '';
+                    mathInput.placeholder = 'Неверно! Попробуйте снова';
+                    mathInput.focus();
+                    
+                    setTimeout(() => {
+                        generateMathProblem();
+                        mathInput.style.borderColor = '#0984e3';
+                    }, 1000);
+                }
+            });
+            
+            mathInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    mathSubmit.click();
+                }
+            });
+            
+            continueBtn.addEventListener('click', () => {
+                warningMessage.classList.remove('active');
+                resultElement.textContent = "Вы можете продолжить игру. Помните о вреде азартных игр!";
+                resultElement.className = "result educational";
+            });
+            
+            updateUI();
+        }
+        
+        document.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>

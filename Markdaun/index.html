@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактор Markdown</title>
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/neo.min.css">
+    <!-- Highlight.js CSS (Dark by default) -->
+    <link id="hljs-style" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            /* Default to Light values */
+            --bg-color: #ffffff;
+            --border-color: #d0d7de;
+            --toolbar-bg: #f6f8fa;
+            --text-color: #24292f;
+            --accent-color: #0969da;
+            --pre-bg: #f6f8fa;
+            --code-bg: rgba(175, 184, 193, 0.2);
+            --link-color: #0969da;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0d1117;
+            --border-color: #30363d;
+            --toolbar-bg: #161b22;
+            --text-color: #c9d1d9;
+            --accent-color: #58a6ff;
+            --pre-bg: #161b22;
+            --code-bg: rgba(110, 118, 129, 0.4);
+            --link-color: #58a6ff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* Link styling */
+        .markdown-body a {
+            color: var(--link-color);
+            text-decoration: none;
+        }
+        
+        .markdown-body a:hover {
+            text-decoration: underline;
+        }
+
+        /* Toolbar Styles */
+        .toolbar {
+            background-color: var(--toolbar-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 16px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-group {
+            display: flex;
+            gap: 4px;
+            border-right: 1px solid var(--border-color);
+            padding-right: 8px;
+        }
+
+        .toolbar-group:last-child {
+            border-right: none;
+        }
+
+        .toolbar-btn {
+            background: none;
+            border: 1px solid transparent;
+            padding: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color);
+            transition: all 0.2s;
+        }
+
+        .toolbar-btn:hover {
+            background-color: rgba(175, 184, 193, 0.2);
+            border-color: var(--border-color);
+        }
+
+        .toolbar-btn i {
+            width: 18px;
+            height: 18px;
+        }
+
+        .toolbar-spacer {
+            flex: 1;
+        }
+
+        /* Main Content Layout */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .pane {
+            flex: 1;
+            height: 100%;
+            overflow: auto;
+            position: relative;
+        }
+
+        #editor-pane {
+            border-right: 1px solid var(--border-color);
+        }
+
+        /* CodeMirror Overrides */
+        .CodeMirror {
+            height: 100% !important;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background: transparent !important;
+            color: inherit !important;
+        }
+
+        .cm-s-neo.CodeMirror { color: var(--text-color); }
+        [data-theme="dark"] .cm-s-neo.CodeMirror { 
+            color: #c9d1d9; 
+        }
+        /* Minimal dark mode for CodeMirror neo theme */
+        [data-theme="dark"] .CodeMirror-gutters { background: #0d1117; border-right: 1px solid #30363d; }
+        [data-theme="dark"] .CodeMirror-linenumber { color: #6e7681; }
+
+        /* Preview Styles (GitHub-like) */
+        #preview-pane {
+            padding: 32px;
+            background-color: var(--bg-color);
+        }
+
+        .markdown-body {
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+            word-wrap: break-word;
+            color: var(--text-color);
+        }
+
+        .markdown-body h1, .markdown-body h2 { border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+        .markdown-body code { background-color: var(--code-bg); padding: 0.2em 0.4em; border-radius: 6px; font-family: monospace; color: inherit; }
+        .markdown-body pre { background-color: var(--pre-bg); padding: 16px; border-radius: 6px; overflow: auto; }
+        .markdown-body pre code { background: none; padding: 0; color: inherit; }
+        .markdown-body blockquote { border-left: 4px solid var(--border-color); color: #8b949e; padding-left: 16px; margin: 0; }
+        .markdown-body img { max-width: 100%; }
+        .markdown-body table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+        .markdown-body th, .markdown-body td { border: 1px solid var(--border-color); padding: 6px 13px; }
+        .markdown-body tr:nth-child(even) { background-color: var(--pre-bg); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content { flex-direction: column; }
+            #editor-pane { border-right: none; border-bottom: 1px solid var(--border-color); }
+        }
+    </style>
+</head>
+<body data-theme="dark">
+
+<div class="app-container">
+    <header class="toolbar" id="toolbar">
+        <div class="toolbar-group">
+            <button class="toolbar-btn" data-command="h1" title="Заголовок 1"><i data-lucide="heading-1"></i></button>
+            <button class="toolbar-btn" data-command="h2" title="Заголовок 2"><i data-lucide="heading-2"></i></button>
+            <button class="toolbar-btn" data-command="h3" title="Заголовок 3"><i data-lucide="heading-3"></i></button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-btn" data-command="bold" title="Жирный"><i data-lucide="bold"></i></button>
+            <button class="toolbar-btn" data-command="italic" title="Курсив"><i data-lucide="italic"></i></button>
+            <button class="toolbar-btn" data-command="strikethrough" title="Зачеркнутый"><i data-lucide="strikethrough"></i></button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-btn" data-command="quote" title="Цитата"><i data-lucide="quote"></i></button>
+            <button class="toolbar-btn" data-command="code" title="Встроенный код"><i data-lucide="code"></i></button>
+            <button class="toolbar-btn" data-command="code-block" title="Блок кода"><i data-lucide="terminal"></i></button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-btn" data-command="link" title="Ссылка"><i data-lucide="link"></i></button>
+            <button class="toolbar-btn" data-command="image" title="Изображение"><i data-lucide="image"></i></button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-btn" data-command="ul" title="Маркированный список"><i data-lucide="list"></i></button>
+            <button class="toolbar-btn" data-command="ol" title="Нумерованный список"><i data-lucide="list-ordered"></i></button>
+            <button class="toolbar-btn" data-command="task" title="Список задач"><i data-lucide="check-square"></i></button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-btn" data-command="table" title="Таблица"><i data-lucide="table"></i></button>
+        </div>
+        
+        <div class="toolbar-spacer"></div>
+
+        <div class="toolbar-group">
+            <button class="toolbar-btn" id="copy-btn" title="Копировать Markdown"><i data-lucide="copy"></i></button>
+            <button class="toolbar-btn" id="theme-btn" title="Переключить тему"><i data-lucide="sun"></i></button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div id="editor-pane" class="pane">
+            <textarea id="markdown-input"></textarea>
+        </div>
+        <div id="preview-pane" class="pane">
+            <div id="preview-content" class="markdown-body"></div>
+        </div>
+    </main>
+</div>
+
+<!-- Dependencies -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/markdown/markdown.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.3/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+<script>
+    // Initialize Icons
+    lucide.createIcons();
+
+    // Elements
+    const textarea = document.getElementById('markdown-input');
+    const previewContent = document.getElementById('preview-content');
+    const previewPane = document.getElementById('preview-pane');
+    const themeBtn = document.getElementById('theme-btn');
+    const copyBtn = document.getElementById('copy-btn');
+    const hljsStyle = document.getElementById('hljs-style');
+
+    // Theme Toggle
+    themeBtn.addEventListener('click', () => {
+        const currentTheme = document.body.dataset.theme;
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.body.dataset.theme = newTheme;
+        
+        // Update Button
+        themeBtn.innerHTML = `<i data-lucide="${newTheme === 'dark' ? 'sun' : 'moon'}"></i>`;
+        lucide.createIcons();
+        
+        // Switch Highlight.js style
+        if (newTheme === 'dark') {
+            hljsStyle.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css";
+        } else {
+            hljsStyle.href = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css";
+        }
+    });
+
+    // Copy Button
+    copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(editor.getValue()).then(() => {
+            const originalIcon = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i data-lucide="check" style="color: green"></i>';
+            lucide.createIcons();
+            setTimeout(() => {
+                copyBtn.innerHTML = originalIcon;
+                lucide.createIcons();
+            }, 2000);
+        });
+    });
+
+    // Initialize CodeMirror
+    const editor = CodeMirror.fromTextArea(textarea, {
+        mode: 'markdown',
+        theme: 'neo',
+        lineNumbers: true,
+        lineWrapping: true,
+        extraKeys: {"Enter": "newlineAndIndentContinueMarkdownList"}
+    });
+
+    // Default Content in Russian
+    const initialContent = `# Добро пожаловать в Интерактивный Редактор!
+
+Это мощный инструмент для работы с **Markdown** в реальном времени.
+
+## Основные возможности:
+- [x] Живой предпросмотр
+- [x] Подсветка синтаксиса в редакторе и превью
+- [x] Удобная панель инструментов
+- [x] Синхронная прокрутка
+- [x] Тёмная и светлая темы
+
+### Пример кода:
+\`\`\`javascript
+// Функция приветствия
+function привет() {
+  const сообщение = "Привет, мир!";
+  console.log(сообщение);
+}
+
+привет();
+\`\`\`
+
+> "Markdown позволяет писать тексты, которые легко читать и удобно конвертировать в HTML."
+
+Вы можете вставлять [ссылки](https://google.com), изображения и таблицы:
+
+| Функция | Статус |
+| :--- | :--- |
+| ip-over-max | Готово |
+| ip-over-zdisk | Готово |
+| max stream | в процессе |
+`;
+    editor.setValue(initialContent);
+
+    // Update Preview
+    function updatePreview() {
+        const markdownText = editor.getValue();
+        const htmlContent = marked.parse(markdownText);
+        previewContent.innerHTML = DOMPurify.sanitize(htmlContent);
+        
+        // Trigger highlight.js for code blocks
+        previewContent.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightElement(block);
+        });
+    }
+
+    // Initial update
+    updatePreview();
+
+    // Listen for changes
+    editor.on('change', () => {
+        updatePreview();
+    });
+
+    // Toolbar Actions
+    const toolbar = document.getElementById('toolbar');
+    toolbar.addEventListener('click', (e) => {
+        const btn = e.target.closest('.toolbar-btn');
+        if (!btn) return;
+
+        const command = btn.dataset.command;
+        const selection = editor.getSelection();
+        const cursor = editor.getCursor();
+
+        let replacement = '';
+        let cursorOffset = 0;
+
+        switch (command) {
+            case 'h1': replacement = '# ' + selection; cursorOffset = 2; break;
+            case 'h2': replacement = '## ' + selection; cursorOffset = 3; break;
+            case 'h3': replacement = '### ' + selection; cursorOffset = 4; break;
+            case 'bold': replacement = '**' + (selection || 'жирный текст') + '**'; cursorOffset = 2; break;
+            case 'italic': replacement = '*' + (selection || 'курсив') + '*'; cursorOffset = 1; break;
+            case 'strikethrough': replacement = '~~' + (selection || 'зачеркнутый') + '~~'; cursorOffset = 2; break;
+            case 'quote': replacement = '> ' + (selection || 'цитата'); cursorOffset = 2; break;
+            case 'code': replacement = '`' + (selection || 'код') + '`'; cursorOffset = 1; break;
+            case 'code-block': replacement = '```\n' + (selection || 'блок кода') + '\n```'; cursorOffset = 4; break;
+            case 'link': replacement = '[' + (selection || 'текст ссылки') + '](https://)'; cursorOffset = selection ? selection.length + 3 : 1; break;
+            case 'image': replacement = '![' + (selection || 'описание') + '](https://)'; cursorOffset = selection ? selection.length + 4 : 2; break;
+            case 'ul': replacement = '- ' + (selection || 'пункт списка'); cursorOffset = 2; break;
+            case 'ol': replacement = '1. ' + (selection || 'пункт списка'); cursorOffset = 3; break;
+            case 'task': replacement = '- [ ] ' + (selection || 'задача'); cursorOffset = 6; break;
+            case 'table': 
+                replacement = '| Заголовок | Заголовок |\n| --- | --- |\n| Ячейка | Ячейка |'; 
+                cursorOffset = 12;
+                break;
+        }
+
+        editor.replaceSelection(replacement);
+        if (!selection) {
+            // Move cursor inside the tags if no selection
+             editor.setCursor(cursor.line, cursor.ch + cursorOffset);
+        }
+        editor.focus();
+    });
+
+    // Synchronized Scrolling
+    let isScrollingEditor = false;
+    let isScrollingPreview = false;
+
+    editor.on('scroll', () => {
+        if (isScrollingPreview) return;
+        isScrollingEditor = true;
+
+        const scrollInfo = editor.getScrollInfo();
+        const scrollPercentage = scrollInfo.top / (scrollInfo.height - scrollInfo.clientHeight);
+        
+        previewPane.scrollTop = scrollPercentage * (previewPane.scrollHeight - previewPane.clientHeight);
+
+        setTimeout(() => { isScrollingEditor = false; }, 50);
+    });
+
+    previewPane.addEventListener('scroll', () => {
+        if (isScrollingEditor) return;
+        isScrollingPreview = true;
+
+        const scrollPercentage = previewPane.scrollTop / (previewPane.scrollHeight - previewPane.clientHeight);
+        const scrollInfo = editor.getScrollInfo();
+        
+        editor.scrollTo(null, scrollPercentage * (scrollInfo.height - scrollInfo.clientHeight));
+
+        setTimeout(() => { isScrollingPreview = false; }, 50);
+    });
+
+</script>
+
+</body>
+</html>

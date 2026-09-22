@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Крестики-Нолики</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>Крестики-Нолики</h1>
+        <div class="status" id="status">Твой ход! Ты играешь за <span style="color: var(--x-color)">X</span></div>
+        <div class="board" id="board">
+            <div class="cell" data-index="0"></div>
+            <div class="cell" data-index="1"></div>
+            <div class="cell" data-index="2"></div>
+            <div class="cell" data-index="3"></div>
+            <div class="cell" data-index="4"></div>
+            <div class="cell" data-index="5"></div>
+            <div class="cell" data-index="6"></div>
+            <div class="cell" data-index="7"></div>
+            <div class="cell" data-index="8"></div>
+        </div>
+        <div class="controls">
+            <button id="restartBtn">Начать заново</button>
+            <div class="difficulty-selector">
+                <label for="difficulty">Сложность:</label>
+                <select id="difficulty">
+                    <option value="unbeatable" selected>Игрок vs ИИ (Непобедимый)</option>
+                    <option value="easy">Игрок vs ИИ (обычный)</option>
+                    <option value="pvp">Игрок vs Игрок</option>
+                    <option value="bot_vs_bot">ИИ vs ИИ (Симуляция)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

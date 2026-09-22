@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор планет</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-color: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-purple: #bc8cff;
+            --accent-orange: #ffa657;
+            --accent-red: #f85149;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #333;
+            background: linear-gradient(135deg, var(--bg-tertiary), #1a5fb4);
+            padding: 30px;
+            text-align: center;
+        }
+        h1 { 
+            color: #64b5f6;
+            font-size: 2.8em;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #90a4ae;
+            font-size: 1.1em;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .mode-btn {
+            padding: 12px 24px;
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            flex: 1;
+            border-bottom: 3px solid transparent;
+        }
+        .mode-btn:hover {
+            background-color: #3d3d3d;
+            transform: translateY(-2px);
+        }
+        .mode-btn.active {
+            background-color: #1565c0;
+            border-color: #64b5f6;
+            color: white;
+        }
+        .mode-content {
+            padding: 30px;
+            display: none;
+        }
+        .mode-content.active { display: block; }
+        .input-section, .presets-section, .results-section {
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid #333;
+            transition: transform 0.3s ease;
+            margin-bottom: 25px;
+        }
+        .input-section:hover, .presets-section:hover, .results-section:hover {
+            transform: translateY(-5px);
+            border-color: #444;
+        }
+        .section-title {
+            color: #4fc3f7;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .preset-btn {
+            padding: 15px;
+            background-color: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #e0e0e0;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-weight: 500;
+        }
+        .preset-btn:hover {
+            background-color: rgba(88, 166, 255, 0.2);
+            border-color: #64b5f6;
+            transform: translateY(-2px);
+        }
+        .preset-btn.earth { background-color: rgba(63, 185, 80, 0.1); }
+        .preset-btn.gas-giant { background-color: rgba(188, 140, 255, 0.1); }
+        .preset-btn.rocky { background-color: rgba(255, 166, 87, 0.1); }
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        label {
+            color: #a5d6a7;
+            font-size: 0.95em;
+            font-weight: bold;
+            min-width: 80px;
+        }
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: #2d2d2d;
+            padding: 5px 10px;
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
+        .input-row input {
+            flex: 1;
+            padding: 8px;
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .input-row input:focus {
+            outline: none;
+            border-color: #64b5f6;
+        }
+        .times-ten {
+            color: #90a4ae;
+            margin: 0 5px;
+        }
+        .exp-input {
+            width: 70px;
+            text-align: center;
+        }
+        .unit {
+            color: #ffb74d;
+            font-size: 0.9em;
+            min-width: 60px;
+        }
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn-primary {
+            background-color: #1976d2;
+            color: white;
+            flex: 2;
+            min-width: 200px;
+        }
+        .btn-primary:hover {
+            background-color: #1565c0;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            flex: 1;
+        }
+        .btn-secondary:hover {
+            background-color: #3d3d3d;
+        }
+        .btn-switch {
+            background-color: var(--accent-green);
+            color: white;
+            flex: 1;
+        }
+        .btn-switch:hover {
+            background-color: #36a84a;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .result-card {
+            background-color: #252525;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #1565c0;
+        }
+        .result-label {
+            color: #bb86fc;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        .result-value {
+            color: #4fc3f7;
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+        .result-unit {
+            color: #ffb74d;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+        .inverse-note {
+            background-color: rgba(255, 166, 87, 0.1);
+            border: 1px solid rgba(255, 166, 87, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            color: var(--accent-orange);
+            font-size: 0.95em;
+        }
+        .error-message {
+            background-color: rgba(248, 81, 73, 0.1);
+            border: 1px solid var(--accent-red);
+            color: var(--accent-red);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        @media (max-width: 768px) {
+            .input-grid { grid-template-columns: 1fr; }
+            .presets-grid { grid-template-columns: repeat(2, 1fr); }
+            .buttons { flex-direction: column; }
+            .btn { width: 100%; }
+            .mode-selector { flex-direction: column; }
+            .mode-btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="switchMode('extended')">
+                <i class="fas fa-rocket"></i> Обычный режим
+            </button>
+            <button class="mode-btn" onclick="switchMode('inverse')">
+                <i class="fas fa-calculator"></i> Расчёт неизвестного
+            </button>
+            <button class="mode-btn" onclick="window.location.href='../index.html'">Вернуться в Механику</button>
+
+        </div>
+        
+        <div id="extended-mode" class="mode-content active">
+            <div class="presets-section">
+                <h2 class="section-title"><i class="fas fa-star"></i> Пресеты Солнечной системы</h2>
+                <p style="color: #90a4ae; margin-bottom: 15px;">Выберите планету для автоматической загрузки параметров</p>
+                <div class="presets-grid" id="presets-container"></div>
+            </div>
+            
+            <div class="input-section">
+                <h2 class="section-title"><i class="fas fa-edit"></i> Параметры планеты</h2>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label for="planet-name-ext"><i class="fas fa-font"></i> Название планеты</label>
+                        <input type="text" id="planet-name-ext" placeholder="Например: Марс" value="Земля">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label><i class="fas fa-weight-hanging"></i> Масса планеты (M)</label>
+                        <div class="input-row">
+                            <input type="number" id="mass-mantissa-ext" step="any" placeholder="Мантисса" value="5.972">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="mass-exponent-ext" class="exp-input" placeholder="Степень" value="24">
+                            <span class="unit">кг</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label><i class="fas fa-ruler"></i> Средний радиус (R)</label>
+                        <div class="input-row">
+                            <input type="number" id="radius-mantissa-ext" step="any" placeholder="Мантисса" value="6371">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="radius-exponent-ext" class="exp-input" placeholder="Степень" value="0">
+                            <span class="unit">км</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label><i class="fas fa-sun"></i> Расстояние до Солнца (a)</label>
+                        <div class="input-row">
+                            <input type="number" id="distance-mantissa-ext" step="any" placeholder="Мантисса" value="1.496">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="distance-exponent-ext" class="exp-input" placeholder="Степень" value="11">
+                            <span class="unit">м</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label><i class="fas fa-tachometer-alt"></i> Орбитальная скорость (v₀)</label>
+                        <div class="input-row">
+                            <input type="number" id="velocity-mantissa-ext" step="any" placeholder="Мантисса" value="29.8">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="velocity-exponent-ext" class="exp-input" placeholder="Степень" value="0">
+                            <span class="unit">км/с</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label><i class="fas fa-calendar-alt"></i> Орбитальный период (T)</label>
+                        <div class="input-row">
+                            <input type="number" id="period-mantissa-ext" step="any" placeholder="Мантисса" value="365.2">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="period-exponent-ext" class="exp-input" placeholder="Степень" value="0">
+                            <span class="unit">дней</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="buttons">
+                    <button class="btn btn-primary" onclick="calculateExtended()">
+                        <i class="fas fa-calculator"></i> Рассчитать все параметры
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearExtendedForm()">
+                        <i class="fas fa-eraser"></i> Очистить форму
+                    </button>
+                </div>                
+                <div class="error-message" id="error-extended"></div>
+            </div>
+            
+            <div class="results-section">
+                <h2 class="section-title"><i class="fas fa-chart-line"></i> Результаты расчётов</h2>
+                <div class="results-grid" id="results-extended"></div>
+            </div>
+        </div>
+        
+        <div id="inverse-mode" class="mode-content">
+            <div class="input-section">
+                <h2 class="section-title"><i class="fas fa-calculator"></i>Поиск неизвестного</h2>
+                <p style="color: #90a4ae; margin-bottom: 20px;">
+                    Введите известные параметры, оставьте пустым поле искомого параметра, и калькулятор вычислит его.
+                </p>
+                
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label>Плотность (ρ)</label>
+                        <div class="input-row">
+                            <input type="number" id="density-mantissa" step="any" placeholder="Мантисса">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="density-exponent" class="exp-input" placeholder="Степень" value="0">
+                            <span class="unit">кг/м³</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Масса (M)</label>
+                        <div class="input-row">
+                            <input type="number" id="inverse-mass-mantissa" step="any" placeholder="Мантисса">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="inverse-mass-exponent" class="exp-input" placeholder="Степень">
+                            <span class="unit">кг</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Радиус (R)</label>
+                        <div class="input-row">
+                            <input type="number" id="inverse-radius-mantissa" step="any" placeholder="Мантисса">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="inverse-radius-exponent" class="exp-input" placeholder="Степень" value="0">
+                            <span class="unit">км</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Гравитация (g)</label>
+                        <div class="input-row">
+                            <input type="number" id="gravity-mantissa" step="any" placeholder="Мантисса">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="gravity-exponent" class="exp-input" placeholder="Степень" value="0">
+                            <span class="unit">м/с²</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Орбитальный период (T)</label>
+                        <div class="input-row">
+                            <input type="number" id="inverse-period-mantissa" step="any" placeholder="Мантисса">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="inverse-period-exponent" class="exp-input" placeholder="Степень" value="0">
+                            <span class="unit">дней</span>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Большая полуось (a)</label>
+                        <div class="input-row">
+                            <input type="number" id="semi-major-mantissa" step="any" placeholder="Мантисса">
+                            <span class="times-ten">×10</span>
+                            <input type="number" id="semi-major-exponent" class="exp-input" placeholder="Степень" value="0">
+                            <span class="unit">м</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="buttons">
+                    <button class="btn btn-primary" onclick="calculateInverse()">
+                        <i class="fas fa-search"></i> Найти неизвестный параметр
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearInverseForm()">
+                        <i class="fas fa-eraser"></i> Очистить
+                    </button>
+                </div>
+                
+                <div class="error-message" id="error-inverse"></div>
+            </div>
+            
+            <div class="results-section">
+                <h2 class="section-title"><i class="fas fa-check-circle"></i> Результат расчёта</h2>
+                <div id="inverse-result" style="background-color: #252525; padding: 25px; border-radius: 10px; border-left: 5px solid #4fc3f7;">
+                    <div id="inverse-result-content" style="font-size: 1.3em; color: #e0e0e0; font-weight: 600;">
+                        Введите данные и нажмите "Найти неизвестный параметр"
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const G = 6.67430e-11;           
+        const SUN_MASS = 1.989e30;       
+        const PI = Math.PI;
+        const AU = 1.496e11;        
+        const DAY_SECONDS = 86400;       
+        
+        function getNumber(mantissaId, exponentId) {
+            const mantissa = parseFloat(document.getElementById(mantissaId).value);
+            const exponent = parseInt(document.getElementById(exponentId).value) || 0;
+            if (isNaN(mantissa)) return NaN;
+            return mantissa * Math.pow(10, exponent);
+        }
+        
+        function formatNumber(value, decimals = 4) {
+            if (isNaN(value) || !isFinite(value)) return "—";
+            if (value === 0) return "0";
+            
+            const absValue = Math.abs(value);
+            if (absValue >= 1e6 || (absValue < 1e-3 && absValue > 0)) {
+                const exponent = Math.floor(Math.log10(absValue));
+                const mantissa = value / Math.pow(10, exponent);
+                return `${mantissa.toFixed(decimals)} × 10<sup>${exponent}</sup>`;
+            }
+            return value.toFixed(decimals);
+        }
+        
+        function showError(mode, message) {
+            const errorElement = document.getElementById(`error-${mode}`);
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            setTimeout(() => { errorElement.style.display = 'none'; }, 5000);
+        }
+        
+        function switchMode(mode) {
+            document.querySelectorAll('.mode-content').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            document.getElementById(`${mode}-mode`).classList.add('active');
+            document.querySelector(`.mode-btn[onclick="switchMode('${mode}')"]`).classList.add('active');
+            
+            if (mode === 'extended' && document.getElementById('presets-container').children.length === 0) {
+                loadPresets();
+            }
+        }
+        
+        const planetPresets = [
+            { name: "Меркурий", mass: 0.330, massExp: 24, radius: 2439.4, radiusExp: 0, 
+              distance: 57.9, distanceExp: 9, velocity: 47.9, velocityExp: 0, period: 88.0, periodExp: 0,
+              class: "rocky", description: "" },
+            { name: "Венера", mass: 4.87, massExp: 24, radius: 6051.8, radiusExp: 0, 
+              distance: 108.2, distanceExp: 9, velocity: 35.0, velocityExp: 0, period: 224.7, periodExp: 0,
+              class: "rocky", description: "" },
+            { name: "Земля", mass: 5.972, massExp: 24, radius: 6371.0, radiusExp: 0, 
+              distance: 149.6, distanceExp: 9, velocity: 29.8, velocityExp: 0, period: 365.2, periodExp: 0,
+              class: "earth", description: "" },
+            { name: "Марс", mass: 0.642, massExp: 24, radius: 3389.5, radiusExp: 0, 
+              distance: 227.9, distanceExp: 9, velocity: 24.1, velocityExp: 0, period: 687.0, periodExp: 0,
+              class: "rocky", description: "" },
+            { name: "Юпитер", mass: 1899, massExp: 24, radius: 69911, radiusExp: 0, 
+              distance: 778.6, distanceExp: 9, velocity: 13.1, velocityExp: 0, period: 4331, periodExp: 0,
+              class: "gas-giant", description: "" },
+            { name: "Сатурн", mass: 568, massExp: 24, radius: 58232, radiusExp: 0, 
+              distance: 1433.5, distanceExp: 9, velocity: 9.7, velocityExp: 0, period: 10747, periodExp: 0,
+              class: "gas-giant", description: "" },
+            { name: "Уран", mass: 86.8, massExp: 24, radius: 25362, radiusExp: 0, 
+              distance: 2872.5, distanceExp: 9, velocity: 6.8, velocityExp: 0, period: 30589, periodExp: 0,
+              class: "gas-giant", description: "" },
+            { name: "Нептун", mass: 102, massExp: 24, radius: 24622, radiusExp: 0, 
+              distance: 4495.1, distanceExp: 9, velocity: 5.4, velocityExp: 0, period: 59800, periodExp: 0,
+              class: "gas-giant", description: "" },
+            { name: "Плутон", mass: 0.0125, massExp: 24, radius: 1188.3, radiusExp: 0, 
+              distance: 5870.0, distanceExp: 9, velocity: 4.7, velocityExp: 0, period: 90588, periodExp: 0,
+              class: "rocky", description: "" },
+            { name: "Луна", mass: 0.073, massExp: 24, radius: 1737.4, radiusExp: 0, 
+              distance: 0.384, distanceExp: 9, velocity: 1.0, velocityExp: 0, period: 27.3, periodExp: 0,
+              class: "rocky", description: "" }
+        ];
+        
+        function loadPresets() {
+            const container = document.getElementById('presets-container');
+            container.innerHTML = '';
+            
+            planetPresets.forEach(planet => {
+                const button = document.createElement('button');
+                button.className = `preset-btn ${planet.class}`;
+                button.innerHTML = `
+                    <div style="font-size: 1.2em; font-weight: 600; margin-bottom: 5px;">${planet.name}</div>
+                    <div style="font-size: 0.85em; opacity: 0.8;">M: ${planet.mass}*10<sup>${planet.massExp}</sup> кг</div>
+                    <div style="font-size: 0.85em; opacity: 0.8;">R: ${planet.radius} км</div>
+                `;
+                button.onclick = () => loadPreset(planet);
+                container.appendChild(button);
+            });
+        }
+        
+        function loadPreset(planet) {
+            document.getElementById('planet-name-ext').value = planet.name;
+            document.getElementById('mass-mantissa-ext').value = planet.mass;
+            document.getElementById('mass-exponent-ext').value = planet.massExp;
+            document.getElementById('radius-mantissa-ext').value = planet.radius;
+            document.getElementById('radius-exponent-ext').value = planet.radiusExp;
+            document.getElementById('distance-mantissa-ext').value = planet.distance;
+            document.getElementById('distance-exponent-ext').value = planet.distanceExp;
+            document.getElementById('velocity-mantissa-ext').value = planet.velocity;
+            document.getElementById('velocity-exponent-ext').value = planet.velocityExp;
+            document.getElementById('period-mantissa-ext').value = planet.period;
+            document.getElementById('period-exponent-ext').value = planet.periodExp;
+        }
+        
+        function calculateExtended() {
+            const planetName = document.getElementById('planet-name-ext').value.trim() || "Планета";
+            const mass = getNumber('mass-mantissa-ext', 'mass-exponent-ext');
+            const radiusKm = getNumber('radius-mantissa-ext', 'radius-exponent-ext');
+            const distance = getNumber('distance-mantissa-ext', 'distance-exponent-ext');
+            const velocity = getNumber('velocity-mantissa-ext', 'velocity-exponent-ext') * 1000; // в м/с
+            const periodDays = getNumber('period-mantissa-ext', 'period-exponent-ext');
+            
+            if (isNaN(mass) || isNaN(radiusKm) || isNaN(distance)) {
+                showError('extended', 'Заполните хотя бы массу, радиус и расстояние до Солнца');
+                return;
+            }
+            
+            const radius = radiusKm * 1000;
+            
+            const g = G * mass / Math.pow(radius, 2);
+            const v1 = Math.sqrt(G * mass / radius);
+            const v2 = Math.sqrt(2) * v1;
+            const volume = (4/3) * PI * Math.pow(radius, 3);
+            const density = mass / volume;
+            const periodSeconds = 2 * PI * Math.sqrt(Math.pow(distance, 3) / (G * SUN_MASS));
+            const periodDaysCalc = periodSeconds / DAY_SECONDS;
+            const vOrbit = Math.sqrt(G * SUN_MASS / distance);
+            const FSun = G * mass * SUN_MASS / Math.pow(distance, 2);
+            let angularVelocity = "—";
+            if (!isNaN(velocity) && velocity > 0) {
+                angularVelocity = formatNumber(velocity / distance, 6) + " рад/с";
+            }
+            let eccentricity = "—";
+            if (!isNaN(periodDays) && periodDays > 0 && !isNaN(velocity) && velocity > 0) {
+                const circumference = 2 * PI * distance;
+                const estimatedPeriod = circumference / velocity;
+                eccentricity = Math.abs(periodDays - estimatedPeriod/DAY_SECONDS) / periodDays;
+                eccentricity = formatNumber(eccentricity, 4);
+            }
+            
+            const results = [
+                { label: "Ускорение свободного падения", value: g, unit: "м/с²", formula: "g = G·M/R²" },
+                { label: "Первая космическая скорость", value: v1, unit: "м/с", formula: "v₁ = √(G·M/R)" },
+                { label: "Вторая космическая скорость", value: v2, unit: "м/с", formula: "v₂ = √2·v₁" },
+                { label: "Средняя плотность", value: density, unit: "кг/м³", formula: "ρ = M/(4/3πR³)" },
+                { label: "Орбитальный период (расчётный)", value: periodDaysCalc, unit: "дней", formula: "T = 2π√(a³/G·M☉)" },
+                { label: "Орбитальная скорость", value: vOrbit, unit: "м/с", formula: "v = √(G·M☉/a)" },
+                { label: "Сила притяжения к Солнцу", value: FSun, unit: "Н", formula: "F = G·M·M☉/a²" },
+                { label: "Угловая скорость", value: angularVelocity, formula: "ω = v/a" },
+                { label: "Эксцентриситет (оценка)", value: eccentricity, formula: "e ≈ |Tₚ - Tₖ|/Tₚ" }
+            ];
+            
+            displayResults('extended', planetName, results);
+        }
+        
+        function displayResults(mode, planetName, results) {
+            const container = document.getElementById('results-extended');
+            let html = '';
+            
+            results.forEach((item, index) => {
+                const value = typeof item.value === 'string' ? item.value : formatNumber(item.value);
+                html += `
+                    <div class="result-card">
+                        <div class="result-label">
+                            <i class="fas fa-${index % 2 === 0 ? 'calculator' : 'chart-line'}"></i>
+                            ${item.label}
+                        </div>
+                        <div class="result-value">${value}</div>
+                        <div class="result-unit">${item.unit || ''}</div>
+                        ${item.formula ? `<div style="font-size: 0.8em; color: #90a4ae; margin-top: 8px;">${item.formula}</div>` : ''}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function clearExtendedForm() {
+            document.getElementById('planet-name-ext').value = '';
+            document.getElementById('mass-mantissa-ext').value = '';
+            document.getElementById('mass-exponent-ext').value = '';
+            document.getElementById('radius-mantissa-ext').value = '';
+            document.getElementById('radius-exponent-ext').value = '';
+            document.getElementById('distance-mantissa-ext').value = '';
+            document.getElementById('distance-exponent-ext').value = '';
+            document.getElementById('velocity-mantissa-ext').value = '';
+            document.getElementById('velocity-exponent-ext').value = '';
+            document.getElementById('period-mantissa-ext').value = '';
+            document.getElementById('period-exponent-ext').value = '';
+            
+            document.getElementById('results-extended').innerHTML = '';
+        }
+        
+        function calculateInverse() {
+            const density = getNumber('density-mantissa', 'density-exponent');
+            const mass = getNumber('inverse-mass-mantissa', 'inverse-mass-exponent');
+            const radiusKm = getNumber('inverse-radius-mantissa', 'inverse-radius-exponent');
+            const gravity = getNumber('gravity-mantissa', 'gravity-exponent');
+            const periodDays = getNumber('inverse-period-mantissa', 'inverse-period-exponent');
+            const semiMajor = getNumber('semi-major-mantissa', 'semi-major-exponent');
+            
+            const radius = isNaN(radiusKm) ? NaN : radiusKm * 1000;
+            let result = '';
+            let foundParam = '';
+            if (isNaN(density) && !isNaN(mass) && !isNaN(radius)) {
+                const volume = (4/3) * PI * Math.pow(radius, 3);
+                const calculatedDensity = mass / volume;
+                result = `Плотность планеты: <strong>${formatNumber(calculatedDensity)} кг/м³</strong><br>`;
+                foundParam = 'плотность';
+            }
+            else if (isNaN(mass) && !isNaN(gravity) && !isNaN(radius)) {
+                const calculatedMass = gravity * Math.pow(radius, 2) / G;
+                result = `Масса планеты: <strong>${formatNumber(calculatedMass)} кг</strong><br>`;
+                foundParam = 'масса';
+            }
+            else if (isNaN(radiusKm) && !isNaN(mass) && !isNaN(density)) {
+                const calculatedRadius = Math.pow(3 * mass / (4 * PI * density), 1/3);
+                result = `Радиус планеты: <strong>${formatNumber(calculatedRadius / 1000)} км</strong><br>`;
+                foundParam = 'радиус';
+            }
+            else if (isNaN(semiMajor) && !isNaN(periodDays)) {
+                const periodSeconds = periodDays * DAY_SECONDS;
+                const calculatedSemiMajor = Math.pow(Math.pow(periodSeconds, 2) * G * SUN_MASS / (4 * Math.pow(PI, 2)), 1/3);
+                result = `Большая полуось орбиты: <strong>${formatNumber(calculatedSemiMajor)} м</strong><br>`;
+                foundParam = 'большую полуось орбиты';
+            }
+            else if (isNaN(periodDays) && !isNaN(semiMajor)) {
+                const calculatedPeriod = 2 * PI * Math.sqrt(Math.pow(semiMajor, 3) / (G * SUN_MASS));
+                result = `Орбитальный период: <strong>${formatNumber(calculatedPeriod / DAY_SECONDS)} дней</strong><br>`;
+                foundParam = 'орбитальный период';
+            }
+            else {
+                showError('inverse', 'Введите значения для всех параметров, кроме одного искомого');
+                return;
+            }
+            
+            document.getElementById('inverse-result-content').innerHTML = result;
+            showError('inverse', `Найдена ${foundParam}!`);
+        }
+        
+        function clearInverseForm() {
+            document.getElementById('density-mantissa').value = '';
+            document.getElementById('density-exponent').value = '0';
+            document.getElementById('inverse-mass-mantissa').value = '';
+            document.getElementById('inverse-mass-exponent').value = '';
+            document.getElementById('inverse-radius-mantissa').value = '';
+            document.getElementById('inverse-radius-exponent').value = '0';
+            document.getElementById('gravity-mantissa').value = '';
+            document.getElementById('gravity-exponent').value = '0';
+            document.getElementById('inverse-period-mantissa').value = '';
+            document.getElementById('inverse-period-exponent').value = '0';
+            document.getElementById('semi-major-mantissa').value = '';
+            document.getElementById('semi-major-exponent').value = '0';
+            
+            document.getElementById('inverse-result-content').innerHTML = 
+                'Введите данные и нажмите "Найти неизвестный параметр"';
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPresets();
+            loadPreset(planetPresets[2]);
+            document.querySelectorAll('input').forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        const activeMode = document.querySelector('.mode-content.active').id;
+                        if (activeMode === 'extended-mode') calculateExtended();
+                        else if (activeMode === 'inverse-mode') calculateInverse();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
